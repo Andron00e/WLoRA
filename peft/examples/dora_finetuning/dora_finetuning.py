@@ -2,14 +2,9 @@ import os
 
 import torch
 from datasets import load_dataset
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    DataCollatorWithPadding,
-    Trainer,
-    TrainingArguments,
-)
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BitsAndBytesConfig, DataCollatorWithPadding, Trainer,
+                          TrainingArguments)
 
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
@@ -53,7 +48,9 @@ def train_model(
             quantization_config=BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_compute_dtype=(
-                    torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
+                    torch.bfloat16
+                    if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+                    else torch.float16
                 ),
                 bnb_4bit_use_double_quant=True,
                 bnb_4bit_quant_type="nf4",
@@ -71,7 +68,15 @@ def train_model(
         target_modules=(
             lora_target_modules.split(",")
             if lora_target_modules
-            else ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+            else [
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj",
+            ]
         ),
         lora_dropout=lora_dropout,
         bias="none",
@@ -87,12 +92,21 @@ def train_model(
     dataset = load_dataset(data_path)
 
     def tokenize_function(examples):
-        inputs = tokenizer(examples["text"], padding="max_length", truncation=True, max_length=cutoff_len)
-        inputs["labels"] = inputs["input_ids"].copy()  # setting labels for a language modeling task
+        inputs = tokenizer(
+            examples["text"],
+            padding="max_length",
+            truncation=True,
+            max_length=cutoff_len,
+        )
+        inputs["labels"] = inputs[
+            "input_ids"
+        ].copy()  # setting labels for a language modeling task
         return inputs
 
     # Tokenize the dataset and prepare for training
-    tokenized_datasets = dataset.map(tokenize_function, batched=True, remove_columns=dataset["train"].column_names)
+    tokenized_datasets = dataset.map(
+        tokenize_function, batched=True, remove_columns=dataset["train"].column_names
+    )
 
     # Data collator to dynamically pad the batched examples
     data_collator = DataCollatorWithPadding(tokenizer)
@@ -146,28 +160,56 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Fine-tune LLaMA with DoRA and PEFT")
-    parser.add_argument("--base_model", type=str, default="huggyllama/llama-7b", help="Base model path or name")
     parser.add_argument(
-        "--data_path", type=str, default="timdettmers/openassistant-guanaco", help="Dataset path or name"
+        "--base_model",
+        type=str,
+        default="huggyllama/llama-7b",
+        help="Base model path or name",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="path/to/output", help="Output directory for the fine-tuned model"
+        "--data_path",
+        type=str,
+        default="timdettmers/openassistant-guanaco",
+        help="Dataset path or name",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="path/to/output",
+        help="Output directory for the fine-tuned model",
     )
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size")
-    parser.add_argument("--num_epochs", type=int, default=1, help="Number of training epochs")
-    parser.add_argument("--learning_rate", type=float, default=3e-4, help="Learning rate")
-    parser.add_argument("--cutoff_len", type=int, default=512, help="Cutoff length for tokenization")
-    parser.add_argument("--val_set_size", type=int, default=500, help="Validation set size")
+    parser.add_argument(
+        "--num_epochs", type=int, default=1, help="Number of training epochs"
+    )
+    parser.add_argument(
+        "--learning_rate", type=float, default=3e-4, help="Learning rate"
+    )
+    parser.add_argument(
+        "--cutoff_len", type=int, default=512, help="Cutoff length for tokenization"
+    )
+    parser.add_argument(
+        "--val_set_size", type=int, default=500, help="Validation set size"
+    )
     parser.add_argument("--use_dora", action="store_true", help="Apply Dora")
     parser.add_argument("--quantize", action="store_true", help="Use quantization")
-    parser.add_argument("--eval_step", type=int, default=10, help="Evaluation step interval")
+    parser.add_argument(
+        "--eval_step", type=int, default=10, help="Evaluation step interval"
+    )
     parser.add_argument("--save_step", type=int, default=100, help="Save step interval")
-    parser.add_argument("--device", type=str, default="cuda:0", help="Device to use for training")
+    parser.add_argument(
+        "--device", type=str, default="cuda:0", help="Device to use for training"
+    )
     parser.add_argument("--lora_r", type=int, default=8, help="LoRA rank")
     parser.add_argument("--lora_alpha", type=int, default=16, help="LoRA alpha")
-    parser.add_argument("--lora_dropout", type=float, default=0.05, help="LoRA dropout rate")
     parser.add_argument(
-        "--lora_target_modules", type=str, default=None, help="Comma-separated list of target modules for LoRA"
+        "--lora_dropout", type=float, default=0.05, help="LoRA dropout rate"
+    )
+    parser.add_argument(
+        "--lora_target_modules",
+        type=str,
+        default=None,
+        help="Comma-separated list of target modules for LoRA",
     )
     parser.add_argument(
         "--hub_model_id",
@@ -175,7 +217,11 @@ if __name__ == "__main__":
         default="path/to/repo",
         help="Repository name to push the model on the Hugging Face Hub",
     )
-    parser.add_argument("--push_to_hub", action="store_true", help="Whether to push the model to Hugging Face Hub")
+    parser.add_argument(
+        "--push_to_hub",
+        action="store_true",
+        help="Whether to push the model to Hugging Face Hub",
+    )
     args = parser.parse_args()
     train_model(
         base_model=args.base_model,

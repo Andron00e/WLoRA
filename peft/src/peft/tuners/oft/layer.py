@@ -41,11 +41,17 @@ class OFTLayer(nn.Module, LycorisLayer):
     def _available_adapters(self) -> Set[str]:
         return {*self.oft_r}
 
-    def create_adapter_parameters(self, adapter_name: str, r: int, shape: Tuple[int, ...], block_share: bool):
+    def create_adapter_parameters(
+        self, adapter_name: str, r: int, shape: Tuple[int, ...], block_share: bool
+    ):
         if block_share:
-            self.oft_r[adapter_name] = nn.Parameter(torch.empty(1, math.ceil(shape[0] / r), math.ceil(shape[0] / r)))
+            self.oft_r[adapter_name] = nn.Parameter(
+                torch.empty(1, math.ceil(shape[0] / r), math.ceil(shape[0] / r))
+            )
         else:
-            self.oft_r[adapter_name] = nn.Parameter(torch.empty(r, math.ceil(shape[0] / r), math.ceil(shape[0] / r)))
+            self.oft_r[adapter_name] = nn.Parameter(
+                torch.empty(r, math.ceil(shape[0] / r), math.ceil(shape[0] / r))
+            )
 
     def reset_adapter_parameters(self, adapter_name: str):
         nn.init.zeros_(self.oft_r[adapter_name])
@@ -77,7 +83,9 @@ class OFTLayer(nn.Module, LycorisLayer):
             block_share (`bool`): Whether to share the OFT parameters between blocks or not.
         """
         if r <= 0:
-            raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
+            raise ValueError(
+                f"`r` should be a positive integer value but the value passed is {r}"
+            )
 
         self.r[adapter_name] = r
         self.module_dropout[adapter_name] = module_dropout
@@ -91,10 +99,14 @@ class OFTLayer(nn.Module, LycorisLayer):
         elif isinstance(base_layer, nn.Conv2d):
             shape = (
                 base_layer.out_channels,
-                base_layer.in_channels * base_layer.kernel_size[0] * base_layer.kernel_size[1],
+                base_layer.in_channels
+                * base_layer.kernel_size[0]
+                * base_layer.kernel_size[1],
             )
         else:
-            raise TypeError(f"OFT is not implemented for base layers of type {type(base_layer).__name__}")
+            raise TypeError(
+                f"OFT is not implemented for base layers of type {type(base_layer).__name__}"
+            )
 
         self.eps[adapter_name] = eps * math.ceil(shape[0] / r) * math.ceil(shape[0] / r)
 
@@ -115,7 +127,9 @@ class OFTLayer(nn.Module, LycorisLayer):
         # scale is not used
         pass
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+    ) -> None:
         """
         Merge the active adapter weights into the base weights
 
@@ -144,14 +158,18 @@ class OFTLayer(nn.Module, LycorisLayer):
                     orig_weights = orig_weights.view(
                         [
                             base_layer.out_channels,
-                            base_layer.in_channels * base_layer.kernel_size[0] * base_layer.kernel_size[1],
+                            base_layer.in_channels
+                            * base_layer.kernel_size[0]
+                            * base_layer.kernel_size[1],
                         ]
                     )
                     orig_weights = torch.transpose(orig_weights, 0, 1)
                 delta_weight = self.get_delta_weight(active_adapter)
                 if orig_weights.shape[1] != delta_weight.shape[1]:
                     # when in channels is not divisible by r
-                    delta_weight = delta_weight[: orig_weights.shape[1], : orig_weights.shape[1]]
+                    delta_weight = delta_weight[
+                        : orig_weights.shape[1], : orig_weights.shape[1]
+                    ]
                 new_weights = torch.mm(orig_weights, delta_weight)
                 if isinstance(base_layer, nn.Linear):
                     new_weights = torch.transpose(new_weights, 0, 1)
@@ -192,14 +210,18 @@ class OFTLayer(nn.Module, LycorisLayer):
                     new_weights = new_weights.view(
                         [
                             base_layer.out_channels,
-                            base_layer.in_channels * base_layer.kernel_size[0] * base_layer.kernel_size[1],
+                            base_layer.in_channels
+                            * base_layer.kernel_size[0]
+                            * base_layer.kernel_size[1],
                         ]
                     )
                     new_weights = torch.transpose(new_weights, 0, 1)
                 delta_weight = self.get_delta_weight(active_adapter)
                 if new_weights.shape[1] != delta_weight.shape[1]:
                     # when in channels is not divisible by r
-                    delta_weight = delta_weight[: new_weights.shape[1], : new_weights.shape[1]]
+                    delta_weight = delta_weight[
+                        : new_weights.shape[1], : new_weights.shape[1]
+                    ]
                 delta_inv = torch.inverse(delta_weight)
                 orig_weights = torch.mm(new_weights, delta_inv)
 
@@ -262,7 +284,9 @@ class OFTLayer(nn.Module, LycorisLayer):
         # scaling factor for each of the smaller block matrix
         eps = eps * 1 / torch.sqrt(torch.tensor(oft_r.shape[0]))
         I = (  # noqa: E741
-            torch.zeros((oft_r.size(1), oft_r.size(1)), device=oft_r.device, dtype=oft_r.dtype)
+            torch.zeros(
+                (oft_r.size(1), oft_r.size(1)), device=oft_r.device, dtype=oft_r.dtype
+            )
             .unsqueeze(0)
             .expand_as(oft_r)
         )
@@ -300,8 +324,12 @@ class OFTLayer(nn.Module, LycorisLayer):
                 module_dropout = self.module_dropout[active_adapter]
 
                 # Modify current execution weights
-                if (not self.training) or (self.training and torch.rand(1) > module_dropout):
-                    result = self._get_delta_activations(active_adapter, result, *args, **kwargs)
+                if (not self.training) or (
+                    self.training and torch.rand(1) > module_dropout
+                ):
+                    result = self._get_delta_activations(
+                        active_adapter, result, *args, **kwargs
+                    )
 
             if base_bias is not None:
                 result = result + base_bias.data

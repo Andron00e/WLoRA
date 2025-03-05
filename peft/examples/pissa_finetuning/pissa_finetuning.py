@@ -18,10 +18,13 @@ from typing import List, Optional
 
 import torch
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BitsAndBytesConfig, HfArgumentParser,
+                          TrainingArguments)
 from trl import SFTTrainer
 
-from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
+from peft import (LoraConfig, PeftModel, get_peft_model,
+                  prepare_model_for_kbit_training)
 
 
 @dataclass
@@ -36,20 +39,33 @@ class TrainingArguments(TrainingArguments):
             "help": "The name or path of the fp32/16 residual model. (`['fxmeng/pissa-llama-2-7b-r16-alpha-16']`)"
         },
     )
-    bits: str = field(default="fp32", metadata={"help": "(`['fp4', 'nf4', 'int8', 'bf16', 'fp16', fp32]`)"})
-    init_lora_weights: str = field(default="pissa", metadata={"help": "(`['gaussian', 'pissa', 'pissa_niter_4']`)"})
+    bits: str = field(
+        default="fp32",
+        metadata={"help": "(`['fp4', 'nf4', 'int8', 'bf16', 'fp16', fp32]`)"},
+    )
+    init_lora_weights: str = field(
+        default="pissa", metadata={"help": "(`['gaussian', 'pissa', 'pissa_niter_4']`)"}
+    )
     lora_r: int = field(default=16)
     lora_alpha: int = field(default=16)
     lora_dropout: float = field(default=0)
     convert_pissa_to_lora: bool = field(default=False)
     merge_and_save: bool = field(default=False)
     # dataset configs
-    data_path: str = field(default="imdb", metadata={"help": "Path to the training data."})
-    dataset_split: str = field(default="train[:1%]", metadata={"help": "(`['train', 'test', 'eval']`):"})
-    dataset_field: List[str] = field(default=None, metadata={"help": "Fields of dataset input and output."})
+    data_path: str = field(
+        default="imdb", metadata={"help": "Path to the training data."}
+    )
+    dataset_split: str = field(
+        default="train[:1%]", metadata={"help": "(`['train', 'test', 'eval']`):"}
+    )
+    dataset_field: List[str] = field(
+        default=None, metadata={"help": "Fields of dataset input and output."}
+    )
     max_seq_length: int = field(
         default=512,
-        metadata={"help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."},
+        metadata={
+            "help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."
+        },
     )
 
 
@@ -67,12 +83,17 @@ if script_args.bits in ["nf4", "fp4", "int8"]:
         bnb_4bit_compute_dtype=torch.bfloat16,
     )
     res_model = AutoModelForCausalLM.from_pretrained(
-        script_args.residual_model_name_or_path, quantization_config=quantization_config, low_cpu_mem_usage=True
+        script_args.residual_model_name_or_path,
+        quantization_config=quantization_config,
+        low_cpu_mem_usage=True,
     )
     res_model = prepare_model_for_kbit_training(res_model)
     print("Wrapping the residual model with PiSSA.")
     peft_model = PeftModel.from_pretrained(
-        res_model, script_args.residual_model_name_or_path, subfolder="pissa_init", is_trainable=True
+        res_model,
+        script_args.residual_model_name_or_path,
+        subfolder="pissa_init",
+        is_trainable=True,
     )
     tokenizer = AutoTokenizer.from_pretrained(script_args.residual_model_name_or_path)
 
@@ -88,7 +109,10 @@ elif script_args.residual_model_name_or_path is not None:
     )
     print("Wrapping the residual model with PiSSA.")
     peft_model = PeftModel.from_pretrained(
-        res_model, script_args.residual_model_name_or_path, subfolder="pissa_init", is_trainable=True
+        res_model,
+        script_args.residual_model_name_or_path,
+        subfolder="pissa_init",
+        is_trainable=True,
     )
     tokenizer = AutoTokenizer.from_pretrained(script_args.residual_model_name_or_path)
 
@@ -112,7 +136,15 @@ elif script_args.base_model_name_or_path is not None:
         lora_alpha=script_args.lora_alpha,
         init_lora_weights=script_args.init_lora_weights,
         lora_dropout=script_args.lora_dropout,
-        target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
+        target_modules=[
+            "q_proj",
+            "o_proj",
+            "k_proj",
+            "v_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ],
         bias="none",
         task_type="CAUSAL_LM",
     )
@@ -121,7 +153,9 @@ elif script_args.base_model_name_or_path is not None:
 print(peft_model)
 peft_model.print_trainable_parameters()
 
-print(f"Training PiSSA with trl on the {script_args.data_path}[{script_args.dataset_split}] dataset.")
+print(
+    f"Training PiSSA with trl on the {script_args.data_path}[{script_args.dataset_split}] dataset."
+)
 dataset = load_dataset(script_args.data_path, split=script_args.dataset_split)
 dataset = dataset.map(
     lambda example: {
@@ -143,7 +177,9 @@ trainer.save_state()
 if script_args.convert_pissa_to_lora:
     peft_model.save_pretrained(
         os.path.join(script_args.output_dir, "pissa_lora"),
-        convert_pissa_to_lora=os.path.join(script_args.residual_model_name_or_path, "pissa_init"),
+        convert_pissa_to_lora=os.path.join(
+            script_args.residual_model_name_or_path, "pissa_init"
+        ),
     )
 else:
     peft_model.save_pretrained(

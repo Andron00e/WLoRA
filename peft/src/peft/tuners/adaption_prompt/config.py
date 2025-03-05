@@ -26,10 +26,17 @@ class AdaptionPromptConfig(PeftConfig):
     """Stores the configuration of an [`AdaptionPromptModel`]."""
 
     target_modules: str = field(
-        default=None, metadata={"help": "Name of the attention submodules to insert adaption prompts into."}
+        default=None,
+        metadata={
+            "help": "Name of the attention submodules to insert adaption prompts into."
+        },
     )
-    adapter_len: int = field(default=None, metadata={"help": "Number of adapter tokens to insert"})
-    adapter_layers: int = field(default=None, metadata={"help": "Number of adapter layers (from the top)"})
+    adapter_len: int = field(
+        default=None, metadata={"help": "Number of adapter tokens to insert"}
+    )
+    adapter_layers: int = field(
+        default=None, metadata={"help": "Number of adapter layers (from the top)"}
+    )
 
     def __post_init__(self):
         self.peft_type = PeftType.ADAPTION_PROMPT
@@ -42,7 +49,14 @@ class AdaptionPromptConfig(PeftConfig):
 
 # Contains the config that is specific to a transformers model type.
 ModelTypeConfig = namedtuple(
-    "ModelTypeConfig", ["compute_query_states", "target_modules", "k_proj_layer", "v_proj_layer", "o_proj_layer"]
+    "ModelTypeConfig",
+    [
+        "compute_query_states",
+        "target_modules",
+        "k_proj_layer",
+        "v_proj_layer",
+        "o_proj_layer",
+    ],
 )
 
 # Mapping of transformers model types to their specific configuration.
@@ -70,7 +84,9 @@ def prepare_config(
 ) -> AdaptionPromptConfig:
     """Prepare the config based on the llama model type."""
     if model.config.model_type not in TRANSFORMERS_MODEL_CONFIG:
-        raise ValueError("Unsupported model type for adaption prompt: '{model.config.model_type}'.")
+        raise ValueError(
+            "Unsupported model type for adaption prompt: '{model.config.model_type}'."
+        )
 
     model_config = TRANSFORMERS_MODEL_CONFIG[model.config.model_type]
 

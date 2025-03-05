@@ -31,19 +31,15 @@ from transformers import PreTrainedModel
 from transformers.pytorch_utils import Conv1D
 
 from peft.utils import INCLUDE_LINEAR_LAYERS_SHORTHAND
-from peft.utils.constants import (
-    DUMMY_MODEL_CONFIG,
-    DUMMY_TARGET_MODULES,
-    EMBEDDING_LAYER_NAMES,
-    MIN_TARGET_MODULES_FOR_OPTIMIZATION,
-    SEQ_CLS_HEAD_NAMES,
-)
+from peft.utils.constants import (DUMMY_MODEL_CONFIG, DUMMY_TARGET_MODULES,
+                                  EMBEDDING_LAYER_NAMES,
+                                  MIN_TARGET_MODULES_FOR_OPTIMIZATION,
+                                  SEQ_CLS_HEAD_NAMES)
 from peft.utils.peft_types import PeftType, TaskType
 
 from ..config import PeftConfig
 from ..utils import ModulesToSaveWrapper, _get_submodules
 from ._buffer_dict import BufferDict
-
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +63,11 @@ def onload_layer(layer):
     for name, module in layer.named_modules():
         if name in ["", "base_layer"]:
             continue
-        if hasattr(module, "_hf_hook") and isinstance(module._hf_hook, AlignDevicesHook) and module._hf_hook.offload:
+        if (
+            hasattr(module, "_hf_hook")
+            and isinstance(module._hf_hook, AlignDevicesHook)
+            and module._hf_hook.offload
+        ):
             module._hf_hook.pre_forward(module)
             offloaded_modules.append(module)
 
@@ -78,12 +78,18 @@ def onload_layer(layer):
         and layer.base_layer._hf_hook.offload
     ):
         # check if the base layer is disk-offloaded (must contain a 'dataset' and an offload index)
-        if torch.device("meta") in layer.base_layer._hf_hook.original_devices.values() and hasattr(
+        if torch.device(
+            "meta"
+        ) in layer.base_layer._hf_hook.original_devices.values() and hasattr(
             layer.base_layer._hf_hook.weights_map, "dataset"
         ):
             # find the disk-offload index (maps modules to safetensors) from the `dataset` (OffloadedWeightsLoader object)
             index = layer.base_layer._hf_hook.weights_map.dataset.index
-            module_name = list(dict(layer.base_layer._hf_hook.weights_map.dataset).keys())[0]  # any module will do
+            module_name = list(
+                dict(layer.base_layer._hf_hook.weights_map.dataset).keys()
+            )[
+                0
+            ]  # any module will do
             file_name = index[module_name]["safetensors_file"]
             base_name_arr = []
             # get effective dir name
@@ -105,14 +111,19 @@ def onload_layer(layer):
     if base_layer_offload:
         # re-make weights map (must be on cpu to send params to the disk via memmap if disk offload)
         layer.base_layer._hf_hook.weights_map = {
-            name: param.to("cpu") for name, param in named_module_tensors(layer.base_layer)
+            name: param.to("cpu")
+            for name, param in named_module_tensors(layer.base_layer)
         }
         # offload weights map to disk if original device is the disk
-        if torch.device("meta") in layer.base_layer._hf_hook.original_devices.values() and hasattr(
+        if torch.device(
+            "meta"
+        ) in layer.base_layer._hf_hook.original_devices.values() and hasattr(
             layer.base_layer._hf_hook.weights_map, "dataset"
         ):
             # rewrite directory with merged weights
-            offload_state_dict(safetensors_filename, layer.base_layer._hf_hook.weights_map)
+            offload_state_dict(
+                safetensors_filename, layer.base_layer._hf_hook.weights_map
+            )
         layer.base_layer._hf_hook.post_forward(layer.base_layer, torch.tensor([]))
 
 
@@ -164,7 +175,11 @@ class BaseTuner(nn.Module, ABC):
         # For advanced developers, if you want to attach multiple adapters to your
         # model, just add a `peft_config` dict attribute to your model.
         if not hasattr(self, "peft_config"):
-            self.peft_config = {adapter_name: peft_config} if isinstance(peft_config, PeftConfig) else peft_config
+            self.peft_config = (
+                {adapter_name: peft_config}
+                if isinstance(peft_config, PeftConfig)
+                else peft_config
+            )
         else:
             logger.info(
                 "Already found a `peft_config` attribute in the model. This will lead to having multiple adapters"
@@ -177,7 +192,9 @@ class BaseTuner(nn.Module, ABC):
                 self.peft_config.update(peft_config)
 
         self.active_adapter: str | list[str] = adapter_name
-        self._pre_injection_hook(self.model, self.peft_config[adapter_name], adapter_name)
+        self._pre_injection_hook(
+            self.model, self.peft_config[adapter_name], adapter_name
+        )
         if peft_config != PeftType.XLORA or peft_config[adapter_name] != PeftType.XLORA:
             self.inject_adapter(self.model, adapter_name)
 
@@ -194,7 +211,9 @@ class BaseTuner(nn.Module, ABC):
     def forward(self, *args: Any, **kwargs: Any):
         return self.model.forward(*args, **kwargs)
 
-    def _pre_injection_hook(self, model: nn.Module, config: PeftConfig, adapter_name: str) -> None:
+    def _pre_injection_hook(
+        self, model: nn.Module, config: PeftConfig, adapter_name: str
+    ) -> None:
         r"""
         A hook to be called before the adapter is injected into the model. This method can be overridden by child
         classes to perform any pre-injection operations.
@@ -210,7 +229,9 @@ class BaseTuner(nn.Module, ABC):
         pass
 
     @abstractmethod
-    def _prepare_adapter_config(self, peft_config: PeftConfig, model_config: dict) -> PeftConfig:
+    def _prepare_adapter_config(
+        self, peft_config: PeftConfig, model_config: dict
+    ) -> PeftConfig:
         r"""
         A private method to eventually prepare the adapter config. For transformers based models, if
         `peft_config.target_modules` is None, we can automatically infer the target modules from the
@@ -320,7 +341,9 @@ class BaseTuner(nn.Module, ABC):
         """
         pass
 
-    def _cast_adapter_dtype(self, adapter_name: str, autocast_adapter_dtype: bool = True) -> None:
+    def _cast_adapter_dtype(
+        self, adapter_name: str, autocast_adapter_dtype: bool = True
+    ) -> None:
         """
         A helper method to cast the adapter weights to the correct dtype.
 
@@ -343,7 +366,9 @@ class BaseTuner(nn.Module, ABC):
                 continue
 
             for submodule in module.modules():
-                if not isinstance(submodule, (nn.ModuleDict, nn.ParameterDict, BufferDict)):
+                if not isinstance(
+                    submodule, (nn.ModuleDict, nn.ParameterDict, BufferDict)
+                ):
                     continue
 
                 if adapter_name not in submodule:
@@ -351,12 +376,18 @@ class BaseTuner(nn.Module, ABC):
 
                 if isinstance(submodule[adapter_name], nn.Parameter):
                     if submodule[adapter_name].dtype in dtypes_to_convert_to_fp32:
-                        submodule[adapter_name].data = submodule[adapter_name].data.to(torch.float32)
+                        submodule[adapter_name].data = submodule[adapter_name].data.to(
+                            torch.float32
+                        )
                     continue
 
-                if isinstance(submodule[adapter_name], torch.Tensor):  # e.g. from a BufferDict
+                if isinstance(
+                    submodule[adapter_name], torch.Tensor
+                ):  # e.g. from a BufferDict
                     if submodule[adapter_name].dtype in dtypes_to_convert_to_fp32:
-                        submodule[adapter_name] = submodule[adapter_name].to(torch.float32)
+                        submodule[adapter_name] = submodule[adapter_name].to(
+                            torch.float32
+                        )
                     continue
 
                 for param in submodule[adapter_name].parameters():
@@ -399,7 +430,9 @@ class BaseTuner(nn.Module, ABC):
                 + example_code
             )
 
-    def inject_adapter(self, model: nn.Module, adapter_name: str, autocast_adapter_dtype: bool = True) -> None:
+    def inject_adapter(
+        self, model: nn.Module, adapter_name: str, autocast_adapter_dtype: bool = True
+    ) -> None:
         r"""
         Creates adapter layers and replaces the target modules with the adapter layers. This method is called under the
         hood by `peft.mapping.get_peft_model` if a non-prompt tuning adapter class is passed.
@@ -420,7 +453,9 @@ class BaseTuner(nn.Module, ABC):
         # in a bad (half-initialized) state.
         self._check_new_adapter_config(peft_config)
 
-        _check_for_modules_to_save = getattr(peft_config, "modules_to_save", None) is not None
+        _check_for_modules_to_save = (
+            getattr(peft_config, "modules_to_save", None) is not None
+        )
         _has_modules_to_save = False
 
         model_config = self.get_model_config(model)
@@ -453,16 +488,23 @@ class BaseTuner(nn.Module, ABC):
             and len(peft_config.target_modules) >= MIN_TARGET_MODULES_FOR_OPTIMIZATION
         ):
             names_no_target = [
-                name for name in key_list if not any(name.endswith(suffix) for suffix in peft_config.target_modules)
+                name
+                for name in key_list
+                if not any(
+                    name.endswith(suffix) for suffix in peft_config.target_modules
+                )
             ]
-            new_target_modules = _find_minimal_target_modules(peft_config.target_modules, names_no_target)
+            new_target_modules = _find_minimal_target_modules(
+                peft_config.target_modules, names_no_target
+            )
             if len(new_target_modules) < len(peft_config.target_modules):
                 peft_config.target_modules = new_target_modules
 
         for key in key_list:
             # Check for modules_to_save in case
             if _check_for_modules_to_save and any(
-                key.endswith(f"{module_to_save}") for module_to_save in peft_config.modules_to_save
+                key.endswith(f"{module_to_save}")
+                for module_to_save in peft_config.modules_to_save
             ):
                 # Optionally set the modules to save
                 parent, target, target_name = _get_submodules(model, key)
@@ -482,7 +524,9 @@ class BaseTuner(nn.Module, ABC):
             self.targeted_module_names.append(key)
             is_target_modules_in_base_model = True
             parent, target, target_name = _get_submodules(model, key)
-            self._create_and_replace(peft_config, adapter_name, target, target_name, parent, current_key=key)
+            self._create_and_replace(
+                peft_config, adapter_name, target, target_name, parent, current_key=key
+            )
 
         tied_target_modules = self._get_tied_target_modules(model=model)
         if tied_target_modules:
@@ -494,7 +538,9 @@ class BaseTuner(nn.Module, ABC):
             )
 
         # Handle X-LoRA case.
-        if not is_target_modules_in_base_model and hasattr(peft_config, "target_modules"):
+        if not is_target_modules_in_base_model and hasattr(
+            peft_config, "target_modules"
+        ):
             raise ValueError(
                 f"Target modules {peft_config.target_modules} not found in the base model. "
                 f"Please check the target modules and try again."
@@ -552,10 +598,13 @@ class BaseTuner(nn.Module, ABC):
     def _unloading_checks(self, adapter_names: Optional[list[str]]):
         adapters_to_consider = adapter_names or self.active_adapters
         is_modules_to_save_available = any(
-            self.peft_config[adapter].modules_to_save for adapter in adapters_to_consider
+            self.peft_config[adapter].modules_to_save
+            for adapter in adapters_to_consider
         )
         if is_modules_to_save_available and len(adapters_to_consider) > 1:
-            raise ValueError("Cannot unload multiple adapters that specify `modules_to_save`.")
+            raise ValueError(
+                "Cannot unload multiple adapters that specify `modules_to_save`."
+            )
 
     @staticmethod
     def get_model_config(model: nn.Module) -> dict:
@@ -642,7 +691,9 @@ class BaseTunerLayer(ABC):
         base_layer = self.get_base_layer()
         return base_layer.bias
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+    ) -> None:
         raise NotImplementedError
 
     def unmerge(self) -> None:
@@ -776,7 +827,9 @@ class BaseTunerLayer(ABC):
                     )
                     self.set_adapter(remaining_adapters[0])
 
-    def _move_adapter_to_device_of_base_layer(self, adapter_name: str, device: Optional[torch.device] = None) -> None:
+    def _move_adapter_to_device_of_base_layer(
+        self, adapter_name: str, device: Optional[torch.device] = None
+    ) -> None:
         """
         Move the adapter of the given name to the device of the base layer.
         """
@@ -797,12 +850,16 @@ class BaseTunerLayer(ABC):
         # see #1639
         for adapter_layer_name in self.adapter_layer_names + self.other_param_names:
             adapter_layer = getattr(self, adapter_layer_name, None)
-            if not isinstance(adapter_layer, (nn.ModuleDict, nn.ParameterDict, BufferDict)):
+            if not isinstance(
+                adapter_layer, (nn.ModuleDict, nn.ParameterDict, BufferDict)
+            ):
                 continue
             if adapter_name not in adapter_layer:
                 continue
             if weight.dtype.is_floating_point or weight.dtype.is_complex:
-                adapter_layer[adapter_name] = adapter_layer[adapter_name].to(device, dtype=dtype)
+                adapter_layer[adapter_name] = adapter_layer[adapter_name].to(
+                    device, dtype=dtype
+                )
             else:
                 adapter_layer[adapter_name] = adapter_layer[adapter_name].to(device)
 
@@ -863,10 +920,14 @@ def _find_minimal_target_modules(
         return [".".join(parts[i:]) for i in range(len(parts))][::-1]
 
     # Create a reverse lookup for other_module_names to quickly check suffix matches
-    other_module_suffixes = {suffix for item in other_module_names for suffix in generate_suffixes(item)}
+    other_module_suffixes = {
+        suffix for item in other_module_names for suffix in generate_suffixes(item)
+    }
 
     # Find all potential suffixes from target_modules
-    target_modules_suffix_map = {item: generate_suffixes(item) for item in target_modules}
+    target_modules_suffix_map = {
+        item: generate_suffixes(item) for item in target_modules
+    }
 
     # Initialize a set for required suffixes
     required_suffixes = set()
@@ -904,7 +965,9 @@ def check_target_module_exists(config, key: str) -> bool | re.Match[str] | None:
         # this module is specified directly in target_modules
         target_module_found = True
     else:
-        target_module_found = any(key.endswith(f".{target_key}") for target_key in config.target_modules)
+        target_module_found = any(
+            key.endswith(f".{target_key}") for target_key in config.target_modules
+        )
 
         layer_indexes = getattr(config, "layers_to_transform", None)
         layers_pattern = getattr(config, "layers_pattern", None)
@@ -919,7 +982,11 @@ def check_target_module_exists(config, key: str) -> bool | re.Match[str] | None:
             if layers_pattern is None or len(layers_pattern) == 0:
                 layer_index = re.match(r".*\.[^.]*\.(\d+)\.", key)
             else:
-                layers_pattern = [layers_pattern] if isinstance(layers_pattern, str) else layers_pattern
+                layers_pattern = (
+                    [layers_pattern]
+                    if isinstance(layers_pattern, str)
+                    else layers_pattern
+                )
                 for pattern in layers_pattern:
                     layer_index = re.match(rf".*\.{pattern}\.(\d+)\.", key)
                     if layer_index is not None:
@@ -952,7 +1019,9 @@ def inspect_matched_modules(tuner: BaseTuner, adapter_name: str = "default") -> 
     return module_dict
 
 
-def _maybe_include_all_linear_layers(peft_config: PeftConfig, model: nn.Module) -> PeftConfig:
+def _maybe_include_all_linear_layers(
+    peft_config: PeftConfig, model: nn.Module
+) -> PeftConfig:
     """
     Helper function to update `target_modules` to all linear/Conv1D layers if provided as 'all-linear'. Adapted from
     the QLoRA repository: https://github.com/artidoro/qlora/blob/main/qlora.py
@@ -987,7 +1056,9 @@ def _maybe_include_all_linear_layers(peft_config: PeftConfig, model: nn.Module) 
     output_emb = model.get_output_embeddings()
     if output_emb is not None:
         # ignore the last classification head for text generation models
-        last_module_name = [name for name, module in model.named_modules() if module is output_emb][0]
+        last_module_name = [
+            name for name, module in model.named_modules() if module is output_emb
+        ][0]
         module_names_to_exclude.add(last_module_name)
     elif peft_config.task_type == TaskType.SEQ_CLS:
         # ignore classifier head for classification models (issue 2027)
@@ -995,7 +1066,9 @@ def _maybe_include_all_linear_layers(peft_config: PeftConfig, model: nn.Module) 
         for name in SEQ_CLS_HEAD_NAMES:
             cls_head = getattr(model, name, None)
             if cls_head is not None:
-                last_module_name = [name for name, module in model.named_modules() if module is cls_head][0]
+                last_module_name = [
+                    name for name, module in model.named_modules() if module is cls_head
+                ][0]
                 module_names_to_exclude.add(last_module_name)
                 break
 
@@ -1004,7 +1077,9 @@ def _maybe_include_all_linear_layers(peft_config: PeftConfig, model: nn.Module) 
     return peft_config
 
 
-def check_adapters_to_merge(module: BaseTunerLayer, adapter_names: Optional[list[str]] = None) -> list[str]:
+def check_adapters_to_merge(
+    module: BaseTunerLayer, adapter_names: Optional[list[str]] = None
+) -> list[str]:
     """
     Helper function to check which adapters should be merged.
 
@@ -1015,7 +1090,9 @@ def check_adapters_to_merge(module: BaseTunerLayer, adapter_names: Optional[list
     if adapter_names is None:
         adapter_names = module.active_adapters
     if isinstance(adapter_names, str):
-        raise ValueError(f"adapter_names should be a list of strings, got {adapter_names!r}.")
+        raise ValueError(
+            f"adapter_names should be a list of strings, got {adapter_names!r}."
+        )
 
     if module.merged:
         merged_adapters = set(module.merged_adapters)
@@ -1098,6 +1175,8 @@ def replicate_layers(model: nn.Module, layer_map: list[tuple[int, int]]):
     elif model_type == "falcon":
         model.h = layers
     else:
-        raise ValueError("Unexpected model type, need to handle post-processing of layers.")
+        raise ValueError(
+            "Unexpected model type, need to handle post-processing of layers."
+        )
     if hasattr(model.config, "num_hidden_layers"):  # Common to Llama, Bert, Falcon.
         model.config.num_hidden_layers = len(new_layers)

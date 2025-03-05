@@ -18,12 +18,10 @@ from typing import List
 import torch
 import transformers
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BitsAndBytesConfig)
 
-from peft import (
-    LoraConfig,
-    get_peft_model,
-)
+from peft import LoraConfig, get_peft_model
 
 
 def train(
@@ -48,14 +46,16 @@ def train(
     model = AutoModelForCausalLM.from_pretrained(
         base_model,
         device_map=device_map,
-        quantization_config=BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-        )
-        if quantize
-        else None,
+        quantization_config=(
+            BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+            )
+            if quantize
+            else None
+        ),
         torch_dtype=torch.float16,
     )
 
@@ -99,7 +99,9 @@ def train(
 
     data = load_dataset(data_path)
 
-    train_val = data["train"].train_test_split(test_size=val_set_size, shuffle=True, seed=42)
+    train_val = data["train"].train_test_split(
+        test_size=val_set_size, shuffle=True, seed=42
+    )
     train_data = train_val["train"].shuffle().map(generate_and_tokenize_prompt)
     val_data = train_val["test"].shuffle().map(generate_and_tokenize_prompt)
 

@@ -34,7 +34,9 @@ class DoraLinearLayer(nn.Module):
         weight_norm = torch.linalg.norm(weight, dim=1).to(weight.dtype)
         return weight_norm
 
-    def update_layer(self, *, base_layer, lora_A, lora_B, scaling, place_on_cpu=False) -> None:
+    def update_layer(
+        self, *, base_layer, lora_A, lora_B, scaling, place_on_cpu=False
+    ) -> None:
         # temporarily convert fp16 to fp32, as fp16 can cause trouble on CPU with PyTorch < 2.2
         dtype_is_fp16 = lora_A.dtype == torch.float16
         if dtype_is_fp16:
@@ -49,14 +51,18 @@ class DoraLinearLayer(nn.Module):
 
             weight = dequantize_module_weight(base_layer)
             if weight.data.ndim == 4:  # For handling LoRAs applied to Conv2Ds.
-                lora_weight = torch.mm(lora_B.flatten(start_dim=1), lora_A.flatten(start_dim=1))
+                lora_weight = torch.mm(
+                    lora_B.flatten(start_dim=1), lora_A.flatten(start_dim=1)
+                )
                 lora_weight = lora_weight.reshape(weight.shape)
             else:
                 lora_weight = lora_B @ lora_A
 
             if dtype_is_fp16:
                 lora_weight = lora_weight.half()
-            weight_norm = self.get_weight_norm(weight.to(lora_A.device), lora_weight, scaling)
+            weight_norm = self.get_weight_norm(
+                weight.to(lora_A.device), lora_weight, scaling
+            )
 
         if place_on_cpu:
             weight_norm = weight_norm.to("cpu")
@@ -71,7 +77,9 @@ class DoraLinearLayer(nn.Module):
 
         # Don't use `lora_weight = lora_B.weight @ lora_A.weight` because this causes errors with FSDP. Instead,
         # calculate the same but using forward.
-        x_eye = torch.eye(lora_A.weight.shape[1], device=lora_A.weight.device, dtype=x.dtype)
+        x_eye = torch.eye(
+            lora_A.weight.shape[1], device=lora_A.weight.device, dtype=x.dtype
+        )
         lora_weight = lora_B(lora_A(x_eye)).T
 
         magnitude = self.weight
@@ -147,7 +155,9 @@ class DoraConv2dLayer(DoraLinearLayer):
         output.
         """
         weight = base_layer.weight
-        lora_weight = torch.mm(lora_B.weight.flatten(start_dim=1), lora_A.weight.flatten(start_dim=1))
+        lora_weight = torch.mm(
+            lora_B.weight.flatten(start_dim=1), lora_A.weight.flatten(start_dim=1)
+        )
         lora_weight = lora_weight.reshape(weight.shape)
         magnitude = self.weight
         weight_norm = self.get_weight_norm(weight, lora_weight.detach(), scaling)

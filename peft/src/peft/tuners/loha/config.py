@@ -15,8 +15,8 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
-from peft.tuners.lycoris_utils import LycorisConfig
 from peft.tuners.lora import LoraConfig
+from peft.tuners.lycoris_utils import LycorisConfig
 from peft.utils import PeftType
 
 
@@ -66,10 +66,14 @@ class LoHaConfig(LoraConfig):
     r: int = field(default=8, metadata={"help": "LoHa rank"})
     lora_alpha: int = field(default=8, metadata={"help": "LoHa alpha"})
     rank_dropout: float = field(
-        default=0.0, metadata={"help": "The dropout probability for rank dimension during training"}
+        default=0.0,
+        metadata={"help": "The dropout probability for rank dimension during training"},
     )
     module_dropout: float = field(
-        default=0.0, metadata={"help": "The dropout probability for disabling LoHa modules during training"}
+        default=0.0,
+        metadata={
+            "help": "The dropout probability for disabling LoHa modules during training"
+        },
     )
     use_effective_conv2d: bool = field(
         default=False,
@@ -118,5 +122,7 @@ class LoHaConfig(LoraConfig):
     def __post_init__(self):
         self.peft_type = PeftType.LOHA
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )

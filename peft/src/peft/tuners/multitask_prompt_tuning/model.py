@@ -20,7 +20,6 @@ from peft.utils.save_and_load import torch_load
 
 from .config import MultitaskPromptTuningConfig, MultitaskPromptTuningInit
 
-
 # This code is adapted for the paper: https://arxiv.org/abs/2303.02861 and
 # constitutes the work done at MIT-IBM Watson Research Lab.
 
@@ -35,7 +34,9 @@ class MultitaskPromptEmbedding(PromptEmbedding):
 
         self.num_transformer_submodules = config.num_transformer_submodules
         if self.num_transformer_submodules is None:
-            self.num_transformer_submodules = 2 if config.task_type == TaskType.SEQ_2_SEQ_LM else 1
+            self.num_transformer_submodules = (
+                2 if config.task_type == TaskType.SEQ_2_SEQ_LM else 1
+            )
 
         self.token_dim = config.token_dim
 
@@ -84,12 +85,21 @@ class MultitaskPromptEmbedding(PromptEmbedding):
             prefix_task_cols_: torch.Tensor = state_dict["prefix_task_cols"]
             prefix_task_rows_: torch.Tensor = state_dict["prefix_task_rows"]
 
-            if config.prompt_tuning_init == MultitaskPromptTuningInit.AVERAGE_SOURCE_TASKS:
+            if (
+                config.prompt_tuning_init
+                == MultitaskPromptTuningInit.AVERAGE_SOURCE_TASKS
+            ):
                 prefix_task_cols_ = prefix_task_cols_.mean(0, keepdim=True)
                 prefix_task_rows_ = prefix_task_rows_.mean(0, keepdim=True)
-            elif config.prompt_tuning_init == MultitaskPromptTuningInit.EXACT_SOURCE_TASK:
-                prefix_task_cols_ = prefix_task_cols_[config.prompt_tuning_init_task, ...].unsqueeze(0)
-                prefix_task_rows_ = prefix_task_rows_[config.prompt_tuning_init_task, ...].unsqueeze(0)
+            elif (
+                config.prompt_tuning_init == MultitaskPromptTuningInit.EXACT_SOURCE_TASK
+            ):
+                prefix_task_cols_ = prefix_task_cols_[
+                    config.prompt_tuning_init_task, ...
+                ].unsqueeze(0)
+                prefix_task_rows_ = prefix_task_rows_[
+                    config.prompt_tuning_init_task, ...
+                ].unsqueeze(0)
 
             state_dict = {
                 "embedding.weight": state_dict["prompt_embeddings"],

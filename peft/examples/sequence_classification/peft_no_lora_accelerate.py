@@ -7,19 +7,18 @@ from datasets import load_dataset
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup, set_seed
+from transformers import (AutoModelForSequenceClassification, AutoTokenizer,
+                          get_linear_schedule_with_warmup, set_seed)
 
-from peft import (
-    PrefixTuningConfig,
-    PromptEncoderConfig,
-    PromptTuningConfig,
-    get_peft_model,
-)
+from peft import (PrefixTuningConfig, PromptEncoderConfig, PromptTuningConfig,
+                  get_peft_model)
 from peft.utils.other import fsdp_auto_wrap_policy
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="PEFT a transformers model on a sequence classification task")
+    parser = argparse.ArgumentParser(
+        description="PEFT a transformers model on a sequence classification task"
+    )
     parser.add_argument(
         "--num_virtual_tokens",
         type=int,
@@ -56,12 +55,24 @@ def parse_args():
         default=1e-3,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
-    parser.add_argument("--num_train_epochs", type=int, default=3, help="Total number of training epochs to perform.")
     parser.add_argument(
-        "--num_warmup_steps", type=int, default=0, help="Number of steps for the warmup in the lr scheduler."
+        "--num_train_epochs",
+        type=int,
+        default=3,
+        help="Total number of training epochs to perform.",
     )
-    parser.add_argument("--output_dir", type=str, default=None, help="Where to store the final model.")
-    parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
+    parser.add_argument(
+        "--num_warmup_steps",
+        type=int,
+        default=0,
+        help="Number of steps for the warmup in the lr scheduler.",
+    )
+    parser.add_argument(
+        "--output_dir", type=str, default=None, help="Where to store the final model."
+    )
+    parser.add_argument(
+        "--seed", type=int, default=None, help="A seed for reproducible training."
+    )
     parser.add_argument(
         "--peft_type",
         type=str,
@@ -71,7 +82,9 @@ def parse_args():
     )
     args = parser.parse_args()
 
-    assert args.output_dir is not None, "Need an `output_dir` to store the finetune model and verify."
+    assert (
+        args.output_dir is not None
+    ), "Need an `output_dir` to store the finetune model and verify."
 
     return args
 
@@ -100,7 +113,9 @@ def main():
             encoder_hidden_size=args.encoder_hidden_size,
         )
     else:
-        peft_config = PromptTuningConfig(task_type="SEQ_CLS", num_virtual_tokens=args.num_virtual_tokens)
+        peft_config = PromptTuningConfig(
+            task_type="SEQ_CLS", num_virtual_tokens=args.num_virtual_tokens
+        )
 
     tokenizer_kwargs = {}
 
@@ -109,7 +124,9 @@ def main():
     else:
         tokenizer_kwargs["padding_side"] = "right"
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, **tokenizer_kwargs)
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name_or_path, **tokenizer_kwargs
+    )
     if getattr(tokenizer, "pad_token_id") is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
@@ -118,7 +135,12 @@ def main():
 
     def tokenize_function(examples):
         # max_length=None => use the model max length (it's actually the default)
-        outputs = tokenizer(examples["sentence1"], examples["sentence2"], truncation=True, max_length=None)
+        outputs = tokenizer(
+            examples["sentence1"],
+            examples["sentence2"],
+            truncation=True,
+            max_length=None,
+        )
         return outputs
 
     def collate_fn(examples):
@@ -137,7 +159,10 @@ def main():
 
     # Instantiate dataloaders.
     train_dataloader = DataLoader(
-        tokenized_datasets["train"], shuffle=True, collate_fn=collate_fn, batch_size=args.per_device_train_batch_size
+        tokenized_datasets["train"],
+        shuffle=True,
+        collate_fn=collate_fn,
+        batch_size=args.per_device_train_batch_size,
     )
     eval_dataloader = DataLoader(
         tokenized_datasets["validation"],
@@ -164,12 +189,16 @@ def main():
     )
 
     if getattr(accelerator.state, "fsdp_plugin", None) is not None:
-        train_dataloader, eval_dataloader, optimizer, lr_scheduler = accelerator.prepare(
-            train_dataloader, eval_dataloader, optimizer, lr_scheduler
+        train_dataloader, eval_dataloader, optimizer, lr_scheduler = (
+            accelerator.prepare(
+                train_dataloader, eval_dataloader, optimizer, lr_scheduler
+            )
         )
     else:
-        model, train_dataloader, eval_dataloader, optimizer, lr_scheduler = accelerator.prepare(
-            model, train_dataloader, eval_dataloader, optimizer, lr_scheduler
+        model, train_dataloader, eval_dataloader, optimizer, lr_scheduler = (
+            accelerator.prepare(
+                model, train_dataloader, eval_dataloader, optimizer, lr_scheduler
+            )
         )
 
     for epoch in range(args.num_train_epochs):
@@ -192,8 +221,12 @@ def main():
             # If we are in a multiprocess environment, the last batch has duplicates
             if accelerator.num_processes > 1:
                 if step == len(eval_dataloader) - 1:
-                    predictions = predictions[: len(eval_dataloader.dataset) - samples_seen]
-                    references = references[: len(eval_dataloader.dataset) - samples_seen]
+                    predictions = predictions[
+                        : len(eval_dataloader.dataset) - samples_seen
+                    ]
+                    references = references[
+                        : len(eval_dataloader.dataset) - samples_seen
+                    ]
                 else:
                     samples_seen += references.shape[0]
             metric.add_batch(
@@ -205,7 +238,9 @@ def main():
 
     accelerator.wait_for_everyone()
     unwrapped_model = accelerator.unwrap_model(model)
-    unwrapped_model.save_pretrained(args.output_dir, state_dict=accelerator.get_state_dict(model))
+    unwrapped_model.save_pretrained(
+        args.output_dir, state_dict=accelerator.get_state_dict(model)
+    )
     if accelerator.is_main_process:
         tokenizer.save_pretrained(args.output_dir)
 

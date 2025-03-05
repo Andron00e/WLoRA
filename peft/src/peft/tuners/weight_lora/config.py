@@ -15,8 +15,8 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
-from peft.tuners.lycoris_utils import LycorisConfig
 from peft.tuners.lora import LoraConfig
+from peft.tuners.lycoris_utils import LycorisConfig
 from peft.utils import PeftType
 
 
@@ -70,10 +70,14 @@ class WeightLoraConfig(LoraConfig):
     r: int = field(default=8, metadata={"help": "Lora rank"})
     lora_alpha: int = field(default=8, metadata={"help": "Lora alpha"})
     rank_dropout: float = field(
-        default=0.0, metadata={"help": "The dropout probability for rank dimension during training"}
+        default=0.0,
+        metadata={"help": "The dropout probability for rank dimension during training"},
     )
     module_dropout: float = field(
-        default=0.0, metadata={"help": "The dropout probability for disabling Lora modules during training"}
+        default=0.0,
+        metadata={
+            "help": "The dropout probability for disabling Lora modules during training"
+        },
     )
     use_effective_conv2d: bool = field(
         default=False,
@@ -83,9 +87,13 @@ class WeightLoraConfig(LoraConfig):
     )
     decompose_both: bool = field(
         default=False,
-        metadata={"help": "Perform rank decomposition of left kronecker product matrix."},
+        metadata={
+            "help": "Perform rank decomposition of left kronecker product matrix."
+        },
     )
-    decompose_factor: int = field(default=-1, metadata={"help": "Kronecker product decomposition factor."})
+    decompose_factor: int = field(
+        default=-1, metadata={"help": "Kronecker product decomposition factor."}
+    )
     target_modules: Optional[Union[List[str], str]] = field(
         default=None,
         metadata={

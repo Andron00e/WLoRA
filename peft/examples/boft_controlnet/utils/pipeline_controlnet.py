@@ -19,11 +19,12 @@ import numpy as np
 import PIL.Image
 import torch
 from diffusers.pipelines.controlnet.multicontrolnet import MultiControlNetModel
-from diffusers.pipelines.controlnet.pipeline_controlnet import StableDiffusionControlNetPipeline
+from diffusers.pipelines.controlnet.pipeline_controlnet import \
+    StableDiffusionControlNetPipeline
 from diffusers.utils import BaseOutput, is_compiled_module, logging
 from torch.nn import functional as F
-from utils.light_controlnet import ControlNetModel
 
+from utils.light_controlnet import ControlNetModel
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -60,7 +61,8 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
         controlnet_conditioning_scale=1.0,
     ):
         if (callback_steps is None) or (
-            callback_steps is not None and (not isinstance(callback_steps, int) or callback_steps <= 0)
+            callback_steps is not None
+            and (not isinstance(callback_steps, int) or callback_steps <= 0)
         ):
             raise ValueError(
                 f"`callback_steps` has to be a positive integer but is {callback_steps} of type"
@@ -76,8 +78,12 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
             raise ValueError(
                 "Provide either `prompt` or `prompt_embeds`. Cannot leave both `prompt` and `prompt_embeds` undefined."
             )
-        elif prompt is not None and (not isinstance(prompt, str) and not isinstance(prompt, list)):
-            raise ValueError(f"`prompt` has to be of type `str` or `list` but is {type(prompt)}")
+        elif prompt is not None and (
+            not isinstance(prompt, str) and not isinstance(prompt, list)
+        ):
+            raise ValueError(
+                f"`prompt` has to be of type `str` or `list` but is {type(prompt)}"
+            )
 
         if negative_prompt is not None and negative_prompt_embeds is not None:
             raise ValueError(
@@ -124,7 +130,9 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
             # When `image` is a nested list:
             # (e.g. [[canny_image_1, pose_image_1], [canny_image_2, pose_image_2]])
             elif any(isinstance(i, list) for i in image):
-                raise ValueError("A single batch of multiple conditionings are supported at the moment.")
+                raise ValueError(
+                    "A single batch of multiple conditionings are supported at the moment."
+                )
             elif len(image) != len(self.controlnet.nets):
                 raise ValueError(
                     "For multiple controlnets: `image` must have the same length as the number of controlnets."
@@ -142,7 +150,9 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
             and isinstance(self.controlnet._orig_mod, ControlNetModel)
         ):
             if not isinstance(controlnet_conditioning_scale, float):
-                raise TypeError("For single controlnet: `controlnet_conditioning_scale` must be type `float`.")
+                raise TypeError(
+                    "For single controlnet: `controlnet_conditioning_scale` must be type `float`."
+                )
         elif (
             isinstance(self.controlnet, MultiControlNetModel)
             or is_compiled
@@ -150,10 +160,12 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
         ):
             if isinstance(controlnet_conditioning_scale, list):
                 if any(isinstance(i, list) for i in controlnet_conditioning_scale):
-                    raise ValueError("A single batch of multiple conditionings are supported at the moment.")
-            elif isinstance(controlnet_conditioning_scale, list) and len(controlnet_conditioning_scale) != len(
-                self.controlnet.nets
-            ):
+                    raise ValueError(
+                        "A single batch of multiple conditionings are supported at the moment."
+                    )
+            elif isinstance(controlnet_conditioning_scale, list) and len(
+                controlnet_conditioning_scale
+            ) != len(self.controlnet.nets):
                 raise ValueError(
                     "For multiple controlnets: When `controlnet_conditioning_scale` is specified as `list`, it must have"
                     " the same length as the number of controlnets"
@@ -302,14 +314,24 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
         # corresponds to doing no classifier free guidance.
         do_classifier_free_guidance = guidance_scale > 1.0
 
-        controlnet = self.controlnet._orig_mod if is_compiled_module(self.controlnet) else self.controlnet
+        controlnet = (
+            self.controlnet._orig_mod
+            if is_compiled_module(self.controlnet)
+            else self.controlnet
+        )
 
-        if isinstance(controlnet, MultiControlNetModel) and isinstance(controlnet_conditioning_scale, float):
-            controlnet_conditioning_scale = [controlnet_conditioning_scale] * len(controlnet.nets)
+        if isinstance(controlnet, MultiControlNetModel) and isinstance(
+            controlnet_conditioning_scale, float
+        ):
+            controlnet_conditioning_scale = [controlnet_conditioning_scale] * len(
+                controlnet.nets
+            )
 
         # 3. Encode input prompt
         text_encoder_lora_scale = (
-            cross_attention_kwargs.get("scale", None) if cross_attention_kwargs is not None else None
+            cross_attention_kwargs.get("scale", None)
+            if cross_attention_kwargs is not None
+            else None
         )
         prompt_embeds = self._encode_prompt(
             prompt,
@@ -384,14 +406,20 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 # expand the latents if we are doing classifier free guidance
-                latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
-                latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+                latent_model_input = (
+                    torch.cat([latents] * 2) if do_classifier_free_guidance else latents
+                )
+                latent_model_input = self.scheduler.scale_model_input(
+                    latent_model_input, t
+                )
 
                 # controlnet(s) inference
                 if guess_mode and do_classifier_free_guidance:
                     # Infer ControlNet only for the conditional batch.
                     control_model_input = latents
-                    control_model_input = self.scheduler.scale_model_input(control_model_input, t)
+                    control_model_input = self.scheduler.scale_model_input(
+                        control_model_input, t
+                    )
                 else:
                     control_model_input = latent_model_input
 
@@ -411,12 +439,18 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
                 # perform guidance
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+                    noise_pred = noise_pred_uncond + guidance_scale * (
+                        noise_pred_text - noise_pred_uncond
+                    )
 
                 # compute the previous noisy sample x_t -> x_t-1
-                latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+                latents = self.scheduler.step(
+                    noise_pred, t, latents, **extra_step_kwargs, return_dict=False
+                )[0]
                 # call the callback, if provided
-                if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
+                if i == len(timesteps) - 1 or (
+                    (i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0
+                ):
                     progress_bar.update()
                     if callback is not None and i % callback_steps == 0:
                         callback(i, t, latents)
@@ -429,8 +463,12 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
             torch.cuda.empty_cache()
 
         if not output_type == "latent":
-            image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0]
-            image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
+            image = self.vae.decode(
+                latents / self.vae.config.scaling_factor, return_dict=False
+            )[0]
+            image, has_nsfw_concept = self.run_safety_checker(
+                image, device, prompt_embeds.dtype
+            )
         else:
             image = latents
             has_nsfw_concept = None
@@ -440,7 +478,9 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
         else:
             do_denormalize = [not has_nsfw for has_nsfw in has_nsfw_concept]
 
-        image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
+        image = self.image_processor.postprocess(
+            image, output_type=output_type, do_denormalize=do_denormalize
+        )
 
         # Offload last model to CPU
         if hasattr(self, "final_offload_hook") and self.final_offload_hook is not None:
@@ -449,4 +489,6 @@ class LightControlNetPipeline(StableDiffusionControlNetPipeline):
         if not return_dict:
             return (image, has_nsfw_concept)
 
-        return LightControlNetPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
+        return LightControlNetPipelineOutput(
+            images=image, nsfw_content_detected=has_nsfw_concept
+        )

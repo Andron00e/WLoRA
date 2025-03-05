@@ -54,7 +54,9 @@ class VeraLayer(BaseTunerLayer):
             in_features, out_features = base_layer.in_features, base_layer.out_features
         elif isinstance(base_layer, Conv1D):
             in_features, out_features = (
-                base_layer.weight.ds_shape if hasattr(base_layer.weight, "ds_shape") else base_layer.weight.shape
+                base_layer.weight.ds_shape
+                if hasattr(base_layer.weight, "ds_shape")
+                else base_layer.weight.shape
             )
 
         self.in_features = in_features
@@ -76,7 +78,9 @@ class VeraLayer(BaseTunerLayer):
         d_initial: float = 0.1,
     ):
         if r <= 0:
-            raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
+            raise ValueError(
+                f"`r` should be a positive integer value but the value passed is {r}"
+            )
         self.r[adapter_name] = r
         if vera_dropout > 0.0:
             vera_dropout_layer = nn.Dropout(p=vera_dropout)
@@ -85,8 +89,12 @@ class VeraLayer(BaseTunerLayer):
 
         self.vera_dropout.update(nn.ModuleDict({adapter_name: vera_dropout_layer}))
         # Actual trainable parameters
-        self.vera_lambda_b[adapter_name] = nn.Parameter(torch.ones(self.out_features), requires_grad=True)
-        self.vera_lambda_d[adapter_name] = nn.Parameter(torch.randn(r), requires_grad=True)
+        self.vera_lambda_b[adapter_name] = nn.Parameter(
+            torch.ones(self.out_features), requires_grad=True
+        )
+        self.vera_lambda_d[adapter_name] = nn.Parameter(
+            torch.randn(r), requires_grad=True
+        )
 
         # non trainable references to vera_A/B buffers
         self.vera_A = vera_A
@@ -107,10 +115,16 @@ class VeraLayer(BaseTunerLayer):
             )
             # check input size
             if vera_A_param.shape[1] < self.in_features:
-                raise ValueError(error_tmpl.format("vera_A", vera_A_param.shape[1], self.in_features))
+                raise ValueError(
+                    error_tmpl.format("vera_A", vera_A_param.shape[1], self.in_features)
+                )
             # check output size
             if vera_B_param.shape[0] < self.out_features:
-                raise ValueError(error_tmpl.format("vera_B", vera_B_param.shape[0], self.out_features))
+                raise ValueError(
+                    error_tmpl.format(
+                        "vera_B", vera_B_param.shape[0], self.out_features
+                    )
+                )
             # check r
             error_tmpl = (
                 "{} has a size of {} but {} or greater is required; this probably happened because an additional VeRA "
@@ -118,9 +132,17 @@ class VeraLayer(BaseTunerLayer):
                 "in reverse order may solve this."
             )
             if vera_A_param.shape[0] < self.r[adapter_name]:
-                raise ValueError(error_tmpl.format("vera_A", vera_A_param.shape[0], self.r[adapter_name]))
+                raise ValueError(
+                    error_tmpl.format(
+                        "vera_A", vera_A_param.shape[0], self.r[adapter_name]
+                    )
+                )
             if vera_B_param.shape[1] < self.r[adapter_name]:
-                raise ValueError(error_tmpl.format("vera_B", vera_B_param.shape[1], self.r[adapter_name]))
+                raise ValueError(
+                    error_tmpl.format(
+                        "vera_B", vera_B_param.shape[1], self.r[adapter_name]
+                    )
+                )
 
             self.vera_A[adapter_name] = vera_A_param
             self.vera_B[adapter_name] = vera_B_param
@@ -160,10 +182,20 @@ class Linear(nn.Linear, VeraLayer):
         self.fan_in_fan_out = fan_in_fan_out
 
         self._active_adapter = adapter_name
-        self.update_layer(adapter_name, vera_A, vera_B, r, vera_dropout, init_weights, d_initial=d_initial)
+        self.update_layer(
+            adapter_name,
+            vera_A,
+            vera_B,
+            r,
+            vera_dropout,
+            init_weights,
+            d_initial=d_initial,
+        )
         self.is_target_conv_1d_layer = is_target_conv_1d_layer
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+    ) -> None:
         """
         Merge the active adapter weights into the base weights
 
@@ -209,7 +241,9 @@ class Linear(nn.Linear, VeraLayer):
         while len(self.merged_adapters) > 0:
             active_adapter = self.merged_adapters.pop()
             if active_adapter in self.vera_lambda_d.keys():
-                self.get_base_layer().weight.data -= self.get_delta_weight(active_adapter)
+                self.get_base_layer().weight.data -= self.get_delta_weight(
+                    active_adapter
+                )
 
     def get_delta_weight(self, adapter) -> torch.Tensor:
         """
@@ -228,7 +262,9 @@ class Linear(nn.Linear, VeraLayer):
         # In case users wants to merge the adapter weights that are in
         # (b)float16 while being on CPU, we need to cast the weights to float32, perform the merge and then cast back to
         # (b)float16 because some CPUs have slow bf16/fp16 matmuls.
-        cast_to_fp32 = device.type == "cpu" and (dtype == torch.float16 or dtype == torch.bfloat16)
+        cast_to_fp32 = device.type == "cpu" and (
+            dtype == torch.float16 or dtype == torch.bfloat16
+        )
 
         lambda_d = self.vera_lambda_d[adapter]
         lambda_b = self.vera_lambda_b[adapter]
@@ -243,7 +279,9 @@ class Linear(nn.Linear, VeraLayer):
         sliced_B = vera_B[: self.out_features, :]
         lambda_b = lambda_b.unsqueeze(-1)
         lambda_d = lambda_d.unsqueeze(-1)
-        output_tensor = transpose((lambda_b * sliced_B) @ (lambda_d * sliced_A), self.fan_in_fan_out)
+        output_tensor = transpose(
+            (lambda_b * sliced_B) @ (lambda_d * sliced_A), self.fan_in_fan_out
+        )
 
         if cast_to_fp32:
             output_tensor = output_tensor.to(dtype=dtype)
@@ -284,7 +322,9 @@ class Linear(nn.Linear, VeraLayer):
 
                 dropout = self.vera_dropout[active_adapter]
                 x = x.to(lambda_d.dtype)
-                result = result + lambda_b * F.linear(lambda_d * F.linear(dropout(x), sliced_A), sliced_B)
+                result = result + lambda_b * F.linear(
+                    lambda_d * F.linear(dropout(x), sliced_A), sliced_B
+                )
 
         result = result.to(previous_dtype)
         return result

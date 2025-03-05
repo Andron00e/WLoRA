@@ -6,7 +6,9 @@ from huggingface_hub import HfFolder, whoami
 from transformers import PretrainedConfig
 
 
-def get_full_repo_name(model_id: str, organization: Optional[str] = None, token: Optional[str] = None):
+def get_full_repo_name(
+    model_id: str, organization: Optional[str] = None, token: Optional[str] = None
+):
     if token is None:
         token = HfFolder.get_token()
     if organization is None:
@@ -16,7 +18,9 @@ def get_full_repo_name(model_id: str, organization: Optional[str] = None, token:
         return f"{organization}/{model_id}"
 
 
-def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: str, revision: str):
+def import_model_class_from_model_name_or_path(
+    pretrained_model_name_or_path: str, revision: str
+):
     text_encoder_config = PretrainedConfig.from_pretrained(
         pretrained_model_name_or_path,
         subfolder="text_encoder",
@@ -29,9 +33,8 @@ def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: st
 
         return CLIPTextModel
     elif model_class == "RobertaSeriesModelWithTransformation":
-        from diffusers.pipelines.alt_diffusion.modeling_roberta_series import (
-            RobertaSeriesModelWithTransformation,
-        )
+        from diffusers.pipelines.alt_diffusion.modeling_roberta_series import \
+            RobertaSeriesModelWithTransformation
 
         return RobertaSeriesModelWithTransformation
     else:
@@ -39,7 +42,9 @@ def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: st
 
 
 def parse_args(input_args=None):
-    parser = argparse.ArgumentParser(description="Simple example of a ControlNet training script.")
+    parser = argparse.ArgumentParser(
+        description="Simple example of a ControlNet training script."
+    )
     parser.add_argument(
         "--pretrained_model_name_or_path",
         type=str,
@@ -82,7 +87,9 @@ def parse_args(input_args=None):
         default=None,
         help="The directory where the downloaded models and datasets will be stored.",
     )
-    parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
+    parser.add_argument(
+        "--seed", type=int, default=None, help="A seed for reproducible training."
+    )
     parser.add_argument(
         "--resolution",
         type=int,
@@ -92,13 +99,23 @@ def parse_args(input_args=None):
             " resolution"
         ),
     )
-    parser.add_argument("--train_text_encoder", action="store_true", help="Whether to train the text encoder")
+    parser.add_argument(
+        "--train_text_encoder",
+        action="store_true",
+        help="Whether to train the text encoder",
+    )
 
     parser.add_argument(
-        "--train_batch_size", type=int, default=4, help="Batch size (per device) for the training dataloader."
+        "--train_batch_size",
+        type=int,
+        default=4,
+        help="Batch size (per device) for the training dataloader.",
     )
     parser.add_argument(
-        "--sample_batch_size", type=int, default=4, help="Batch size (per device) for sampling images."
+        "--sample_batch_size",
+        type=int,
+        default=4,
+        help="Batch size (per device) for sampling images.",
     )
 
     parser.add_argument("--num_train_epochs", type=int, default=1)
@@ -168,7 +185,10 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
-        "--lr_warmup_steps", type=int, default=500, help="Number of steps for the warmup in the lr scheduler."
+        "--lr_warmup_steps",
+        type=int,
+        default=500,
+        help="Number of steps for the warmup in the lr scheduler.",
     )
     parser.add_argument(
         "--lr_num_cycles",
@@ -176,9 +196,16 @@ def parse_args(input_args=None):
         default=1,
         help="Number of hard resets of the lr in cosine_with_restarts scheduler.",
     )
-    parser.add_argument("--lr_power", type=float, default=1.0, help="Power factor of the polynomial scheduler.")
     parser.add_argument(
-        "--use_8bit_adam", action="store_true", help="Whether or not to use 8-bit Adam from bitsandbytes."
+        "--lr_power",
+        type=float,
+        default=1.0,
+        help="Power factor of the polynomial scheduler.",
+    )
+    parser.add_argument(
+        "--use_8bit_adam",
+        action="store_true",
+        help="Whether or not to use 8-bit Adam from bitsandbytes.",
     )
     parser.add_argument(
         "--dataloader_num_workers",
@@ -188,13 +215,41 @@ def parse_args(input_args=None):
             "Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process."
         ),
     )
-    parser.add_argument("--adam_beta1", type=float, default=0.9, help="The beta1 parameter for the Adam optimizer.")
-    parser.add_argument("--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam optimizer.")
-    parser.add_argument("--adam_weight_decay", type=float, default=1e-2, help="Weight decay to use.")
-    parser.add_argument("--adam_epsilon", type=float, default=1e-08, help="Epsilon value for the Adam optimizer")
-    parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
-    parser.add_argument("--push_to_hub", action="store_true", help="Whether or not to push the model to the Hub.")
-    parser.add_argument("--hub_token", type=str, default=None, help="The token to use to push to the Model Hub.")
+    parser.add_argument(
+        "--adam_beta1",
+        type=float,
+        default=0.9,
+        help="The beta1 parameter for the Adam optimizer.",
+    )
+    parser.add_argument(
+        "--adam_beta2",
+        type=float,
+        default=0.999,
+        help="The beta2 parameter for the Adam optimizer.",
+    )
+    parser.add_argument(
+        "--adam_weight_decay", type=float, default=1e-2, help="Weight decay to use."
+    )
+    parser.add_argument(
+        "--adam_epsilon",
+        type=float,
+        default=1e-08,
+        help="Epsilon value for the Adam optimizer",
+    )
+    parser.add_argument(
+        "--max_grad_norm", default=1.0, type=float, help="Max gradient norm."
+    )
+    parser.add_argument(
+        "--push_to_hub",
+        action="store_true",
+        help="Whether or not to push the model to the Hub.",
+    )
+    parser.add_argument(
+        "--hub_token",
+        type=str,
+        default=None,
+        help="The token to use to push to the Model Hub.",
+    )
     parser.add_argument(
         "--hub_model_id",
         type=str,
@@ -231,19 +286,25 @@ def parse_args(input_args=None):
         "--wandb_key",
         type=str,
         default=None,
-        help=("If report to option is set to wandb, api-key for wandb used for login to wandb "),
+        help=(
+            "If report to option is set to wandb, api-key for wandb used for login to wandb "
+        ),
     )
     parser.add_argument(
         "--wandb_project_name",
         type=str,
         default=None,
-        help=("If report to option is set to wandb, project name in wandb for log tracking  "),
+        help=(
+            "If report to option is set to wandb, project name in wandb for log tracking  "
+        ),
     )
     parser.add_argument(
         "--wandb_run_name",
         type=str,
         default=None,
-        help=("If report to option is set to wandb, project name in wandb for log tracking  "),
+        help=(
+            "If report to option is set to wandb, project name in wandb for log tracking  "
+        ),
     )
     parser.add_argument(
         "--mixed_precision",
@@ -257,7 +318,9 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
-        "--enable_xformers_memory_efficient_attention", action="store_true", help="Whether or not to use xformers."
+        "--enable_xformers_memory_efficient_attention",
+        action="store_true",
+        help="Whether or not to use xformers.",
     )
     parser.add_argument(
         "--set_grads_to_none",
@@ -295,7 +358,10 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
-        "--image_column", type=str, default="image", help="The column of the dataset containing the target image."
+        "--image_column",
+        type=str,
+        default="image",
+        help="The column of the dataset containing the target image.",
     )
     parser.add_argument(
         "--conditioning_image_column",
@@ -374,14 +440,32 @@ def parse_args(input_args=None):
     )
 
     # evaluation arguments
-    parser.add_argument("--controlnet_path", type=str, default=None, help="Path to pretrained controlnet.")
-    parser.add_argument("--unet_path", type=str, default=None, help="Path to pretrained unet.")
-    parser.add_argument("--adapter_name", type=str, default=None, help="Name of the adapter to use.")
-    parser.add_argument("--vis_overlays", action="store_true", help="Whether to visualize the landmarks.")
+    parser.add_argument(
+        "--controlnet_path",
+        type=str,
+        default=None,
+        help="Path to pretrained controlnet.",
+    )
+    parser.add_argument(
+        "--unet_path", type=str, default=None, help="Path to pretrained unet."
+    )
+    parser.add_argument(
+        "--adapter_name", type=str, default=None, help="Name of the adapter to use."
+    )
+    parser.add_argument(
+        "--vis_overlays",
+        action="store_true",
+        help="Whether to visualize the landmarks.",
+    )
 
     # self-invented arguments
 
-    parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
+    parser.add_argument(
+        "--local_rank",
+        type=int,
+        default=-1,
+        help="For distributed training: local_rank",
+    )
 
     parser.add_argument(
         "--name",
@@ -390,11 +474,29 @@ def parse_args(input_args=None):
     )
 
     # BOFT args
-    parser.add_argument("--use_boft", action="store_true", help="Whether to use BOFT for parameter efficient tuning")
-    parser.add_argument("--boft_block_num", type=int, default=8, help="The number of BOFT blocks")
-    parser.add_argument("--boft_block_size", type=int, default=0, help="The size of BOFT blocks")
-    parser.add_argument("--boft_n_butterfly_factor", type=int, default=0, help="The number of butterfly factors")
-    parser.add_argument("--boft_dropout", type=float, default=0.1, help="BOFT dropout, only used if use_boft is True")
+    parser.add_argument(
+        "--use_boft",
+        action="store_true",
+        help="Whether to use BOFT for parameter efficient tuning",
+    )
+    parser.add_argument(
+        "--boft_block_num", type=int, default=8, help="The number of BOFT blocks"
+    )
+    parser.add_argument(
+        "--boft_block_size", type=int, default=0, help="The size of BOFT blocks"
+    )
+    parser.add_argument(
+        "--boft_n_butterfly_factor",
+        type=int,
+        default=0,
+        help="The number of butterfly factors",
+    )
+    parser.add_argument(
+        "--boft_dropout",
+        type=float,
+        default=0.1,
+        help="BOFT dropout, only used if use_boft is True",
+    )
     parser.add_argument(
         "--boft_bias",
         type=str,
@@ -422,10 +524,14 @@ def parse_args(input_args=None):
         raise ValueError("`--proportion_empty_prompts` must be in the range [0, 1].")
 
     if args.validation_prompt is not None and args.validation_image is None:
-        raise ValueError("`--validation_image` must be set if `--validation_prompt` is set")
+        raise ValueError(
+            "`--validation_image` must be set if `--validation_prompt` is set"
+        )
 
     if args.validation_prompt is None and args.validation_image is not None:
-        raise ValueError("`--validation_prompt` must be set if `--validation_image` is set")
+        raise ValueError(
+            "`--validation_prompt` must be set if `--validation_image` is set"
+        )
 
     if (
         args.validation_image is not None

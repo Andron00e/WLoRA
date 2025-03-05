@@ -117,7 +117,9 @@ class AdaptionPromptModel(nn.Module):
         self._enabled = False
         self._remove_adapted_attentions(self._active_adapter)
 
-    def _create_adapted_attentions(self, config: AdaptionPromptConfig, parents: List[nn.Module]) -> None:
+    def _create_adapted_attentions(
+        self, config: AdaptionPromptConfig, parents: List[nn.Module]
+    ) -> None:
         """Wrap LlamaAttention modules with newly created AdaptedAttention modules."""
         for par in parents:
             attn = AdaptedAttention(
@@ -158,6 +160,8 @@ class AdaptionPromptModel(nn.Module):
         except AttributeError:
             # This is necessary as e.g. causal models have various methods that we
             # don't want to re-implement here.
-            if name == "model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.model, name)

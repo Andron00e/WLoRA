@@ -24,12 +24,11 @@ import torch
 from tqdm import tqdm
 from transformers.pytorch_utils import Conv1D
 
-from peft.tuners.tuners_utils import BaseTuner, BaseTunerLayer, check_target_module_exists
+from peft.tuners.tuners_utils import (BaseTuner, BaseTunerLayer,
+                                      check_target_module_exists)
 from peft.utils import (
     TRANSFORMERS_MODELS_TO_FOURIERFT_TARGET_MODULES_MAPPING,
-    ModulesToSaveWrapper,
-    _get_submodules,
-)
+    ModulesToSaveWrapper, _get_submodules)
 
 from .config import FourierFTConfig
 from .layer import FourierFTLayer, FourierFTLinear
@@ -92,9 +91,14 @@ class FourierFTModel(BaseTuner):
             raise ValueError("Current Key shouldn't be `None`")
         # Regexp matching - Find key which matches current target_name in patterns provided
         pattern_keys = list(chain(fourierft_config.n_frequency_pattern.keys()))
-        target_name_key = next(filter(lambda key: re.match(rf".*\.{key}$", current_key), pattern_keys), current_key)
+        target_name_key = next(
+            filter(lambda key: re.match(rf".*\.{key}$", current_key), pattern_keys),
+            current_key,
+        )
 
-        n_frequency = fourierft_config.n_frequency_pattern.get(target_name_key, fourierft_config.n_frequency)
+        n_frequency = fourierft_config.n_frequency_pattern.get(
+            target_name_key, fourierft_config.n_frequency
+        )
         scaling = fourierft_config.scaling
         random_loc_seed = fourierft_config.random_loc_seed
         bias = hasattr(target, "bias") and target.bias is not None
@@ -115,7 +119,9 @@ class FourierFTModel(BaseTuner):
                 random_loc_seed,
             )
         else:
-            new_module = self._create_new_module(fourierft_config, adapter_name, target, **kwargs)
+            new_module = self._create_new_module(
+                fourierft_config, adapter_name, target, **kwargs
+            )
             if adapter_name != self.active_adapter:
                 # adding an additional adapter: it is not automatically trainable
                 new_module.requires_grad_(False)
@@ -163,10 +169,16 @@ class FourierFTModel(BaseTuner):
                         p.requires_grad = True
             elif bias == "fourier_only":
                 for m in model.modules():
-                    if isinstance(m, FourierFTLayer) and hasattr(m, "bias") and m.bias is not None:
+                    if (
+                        isinstance(m, FourierFTLayer)
+                        and hasattr(m, "bias")
+                        and m.bias is not None
+                    ):
                         m.bias.requires_grad = True
             else:
-                raise NotImplementedError(f"Requested bias: {bias}, is not implemented.")
+                raise NotImplementedError(
+                    f"Requested bias: {bias}, is not implemented."
+                )
 
     @staticmethod
     def _create_new_module(fourierft_config, adapter_name, target, **kwargs):
@@ -212,7 +224,10 @@ class FourierFTModel(BaseTuner):
     def get_peft_config_as_dict(self, inference: bool = False):
         config_dict = {}
         for key, value in self.peft_config.items():
-            config = {k: v.value if isinstance(v, Enum) else v for k, v in asdict(value).items()}
+            config = {
+                k: v.value if isinstance(v, Enum) else v
+                for k, v in asdict(value).items()
+            }
             if inference:
                 config["inference_mode"] = True
         config_dict[key] = config
@@ -254,7 +269,9 @@ class FourierFTModel(BaseTuner):
         for module in self.model.modules():
             if isinstance(module, FourierFTLayer):
                 if module.merged:
-                    warnings.warn("Adapter cannot be set when the model is merged. Unmerging the model first.")
+                    warnings.warn(
+                        "Adapter cannot be set when the model is merged. Unmerging the model first."
+                    )
                     module.unmerge()
                 module.set_adapter(adapter_name)
         self.active_adapter = adapter_name
@@ -262,10 +279,15 @@ class FourierFTModel(BaseTuner):
     @staticmethod
     def _prepare_adapter_config(peft_config, model_config):
         if peft_config.target_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_FOURIERFT_TARGET_MODULES_MAPPING:
+            if (
+                model_config["model_type"]
+                not in TRANSFORMERS_MODELS_TO_FOURIERFT_TARGET_MODULES_MAPPING
+            ):
                 raise ValueError("Please specify `target_modules` in `peft_config`")
             peft_config.target_modules = set(
-                TRANSFORMERS_MODELS_TO_FOURIERFT_TARGET_MODULES_MAPPING[model_config["model_type"]]
+                TRANSFORMERS_MODELS_TO_FOURIERFT_TARGET_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
             )
         return peft_config
 
@@ -276,7 +298,9 @@ class FourierFTModel(BaseTuner):
         safe_merge: bool = False,
         adapter_names: Optional[list[str]] = None,
     ):
-        key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if self.prefix not in key
+        ]
         desc = "Unloading " + ("and merging " if merge else "") + "model"
         for key in tqdm(key_list, disable=not progressbar, desc=desc):
             try:
@@ -287,10 +311,14 @@ class FourierFTModel(BaseTuner):
             if hasattr(target, "base_layer"):
                 if merge:
                     target.merge(safe_merge=safe_merge, adapter_names=adapter_names)
-                self._replace_module(parent, target_name, target.get_base_layer(), target)
+                self._replace_module(
+                    parent, target_name, target.get_base_layer(), target
+                )
             elif isinstance(target, ModulesToSaveWrapper):
                 # save any additional trainable modules part of `modules_to_save`
-                setattr(parent, target_name, target.modules_to_save[target.active_adapter])
+                setattr(
+                    parent, target_name, target.modules_to_save[target.active_adapter]
+                )
 
         return self.model
 
@@ -306,7 +334,9 @@ class FourierFTModel(BaseTuner):
         del self.peft_config[adapter_name]
 
         # we cannot use self.prefix as we want to include non-trainable fourierft parameters
-        key_list = [key for key, _ in self.model.named_modules() if "fourierft" not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if "fourierft" not in key
+        ]
         new_adapter = None
         for key in key_list:
             _, target, _ = _get_submodules(self.model, key)
@@ -318,7 +348,10 @@ class FourierFTModel(BaseTuner):
         self.active_adapter = new_adapter or []
 
     def merge_and_unload(
-        self, progressbar: bool = False, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+        self,
+        progressbar: bool = False,
+        safe_merge: bool = False,
+        adapter_names: Optional[list[str]] = None,
     ) -> torch.nn.Module:
         r"""
         This method merges the Fourier layers into the base model. This is needed if someone wants to use the base

@@ -20,11 +20,10 @@ from typing import Any
 import torch
 from torch import nn
 
-from peft.tuners.tuners_utils import BaseTuner, BaseTunerLayer, check_target_module_exists
-from peft.utils import (
-    TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING,
-    ModulesToSaveWrapper,
-)
+from peft.tuners.tuners_utils import (BaseTuner, BaseTunerLayer,
+                                      check_target_module_exists)
+from peft.utils import (TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING,
+                        ModulesToSaveWrapper)
 
 from .config import PolyConfig
 from .layer import Linear, PolyLayer
@@ -114,14 +113,19 @@ class PolyModel(BaseTuner):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.model, name)
 
     def get_peft_config_as_dict(self, inference: bool = False):
         config_dict = {}
         for key, value in self.peft_config.items():
-            config = {k: v.value if isinstance(v, Enum) else v for k, v in asdict(value).items()}
+            config = {
+                k: v.value if isinstance(v, Enum) else v
+                for k, v in asdict(value).items()
+            }
             if inference:
                 config["inference_mode"] = True
         config_dict[key] = config
@@ -145,10 +149,15 @@ class PolyModel(BaseTuner):
 
     def _prepare_adapter_config(self, peft_config, model_config):
         if peft_config.target_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING:
+            if (
+                model_config["model_type"]
+                not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
+            ):
                 raise ValueError("Please specify `target_modules` in `peft_config`")
             peft_config.target_modules = set(
-                TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING[model_config["model_type"]]
+                TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
             )
         return peft_config
 

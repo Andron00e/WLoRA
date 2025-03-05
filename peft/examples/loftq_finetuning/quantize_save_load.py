@@ -17,12 +17,8 @@ import os
 
 import torch
 import torch.nn as nn
-from transformers import (
-    AutoModelForCausalLM,
-    AutoModelForSeq2SeqLM,
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-)
+from transformers import (AutoModelForCausalLM, AutoModelForSeq2SeqLM,
+                          AutoModelForSequenceClassification, AutoTokenizer)
 
 from peft import LoftQConfig, LoraConfig, TaskType, get_peft_model
 
@@ -36,7 +32,11 @@ class Shell(nn.Module):
 
 
 def unwrap_model(model, sub_module_name=".base_layer"):
-    sub_module_name_list = [k.split(sub_module_name)[0] for k in model.state_dict().keys() if sub_module_name in k]
+    sub_module_name_list = [
+        k.split(sub_module_name)[0]
+        for k in model.state_dict().keys()
+        if sub_module_name in k
+    ]
     sub_module_name_set = set(sub_module_name_list)
     for name in sub_module_name_set:
         # get the parent of the submodule
@@ -122,21 +122,48 @@ def quantize_and_save():
     args = arg_parse()
 
     # Download weights and configure LoRA
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, token=args.token, trust_remote_code=True)
-    if any(name in args.model_name_or_path.lower() for name in ["llama", "mistral", "falcon"]):
-        model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, token=args.token, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name_or_path, token=args.token, trust_remote_code=True
+    )
+    if any(
+        name in args.model_name_or_path.lower()
+        for name in ["llama", "mistral", "falcon"]
+    ):
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_name_or_path, token=args.token, trust_remote_code=True
+        )
         task_type = TaskType.CAUSAL_LM
-        target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj", "gate_proj"]
+        target_modules = [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "up_proj",
+            "down_proj",
+            "gate_proj",
+        ]
 
     elif any(name in args.model_name_or_path.lower() for name in ["bart", "t5"]):
-        model = AutoModelForSeq2SeqLM.from_pretrained(args.model_name_or_path, token=args.token)
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            args.model_name_or_path, token=args.token
+        )
         task_type = TaskType.SEQ_2_SEQ_LM
         target_modules = ["q_proj", "k_proj", "v_proj", "fc1", "fc2", "out_proj"]
 
-    elif any(name in args.model_name_or_path.lower() for name in ["deberta", "roberta", "bert"]):
-        model = AutoModelForSequenceClassification.from_pretrained(args.model_name_or_path, token=args.token)
+    elif any(
+        name in args.model_name_or_path.lower()
+        for name in ["deberta", "roberta", "bert"]
+    ):
+        model = AutoModelForSequenceClassification.from_pretrained(
+            args.model_name_or_path, token=args.token
+        )
         task_type = TaskType.SEQ_CLS
-        target_modules = ["query_proj", "key_proj", "value_proj", "dense"]  # embeddings not supported by peft
+        target_modules = [
+            "query_proj",
+            "key_proj",
+            "value_proj",
+            "dense",
+        ]  # embeddings not supported by peft
     else:
         raise NotImplementedError("Other models not supported yet.")
 
@@ -159,15 +186,21 @@ def quantize_and_save():
     base_model = lora_model.get_base_model()
 
     # Save LoftQ model
-    model_name = args.model_name_or_path.split("/")[-1] + f"-{args.bits}bit" + f"-{args.rank}rank"
+    model_name = (
+        args.model_name_or_path.split("/")[-1]
+        + f"-{args.bits}bit"
+        + f"-{args.rank}rank"
+    )
     base_model_dir = os.path.join(args.save_dir, model_name)
     lora_model_dir = os.path.join(args.save_dir, model_name, "loft_init")
 
     # save lora adapters first
-    lora_model.base_model.peft_config[
-        "default"
-    ].base_model_name_or_path = base_model_dir  # This can be a local path or Hub model id
-    lora_model.base_model.peft_config["default"].init_lora_weights = True  # Don't apply LoftQ when loading again
+    lora_model.base_model.peft_config["default"].base_model_name_or_path = (
+        base_model_dir  # This can be a local path or Hub model id
+    )
+    lora_model.base_model.peft_config["default"].init_lora_weights = (
+        True  # Don't apply LoftQ when loading again
+    )
 
     lora_model.save_pretrained(lora_model_dir)
     print_model(lora_model, "lora_model")

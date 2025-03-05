@@ -26,12 +26,10 @@ from torch.nn.init import _calculate_correct_fan
 from tqdm import tqdm
 from transformers.pytorch_utils import Conv1D
 
-from peft.tuners.tuners_utils import BaseTuner, BaseTunerLayer, check_target_module_exists
-from peft.utils import (
-    TRANSFORMERS_MODELS_TO_VERA_TARGET_MODULES_MAPPING,
-    ModulesToSaveWrapper,
-    _get_submodules,
-)
+from peft.tuners.tuners_utils import (BaseTuner, BaseTunerLayer,
+                                      check_target_module_exists)
+from peft.utils import (TRANSFORMERS_MODELS_TO_VERA_TARGET_MODULES_MAPPING,
+                        ModulesToSaveWrapper, _get_submodules)
 
 from .._buffer_dict import BufferDict
 from ..tuners_utils import _maybe_include_all_linear_layers
@@ -129,7 +127,9 @@ class VeraModel(BaseTuner):
                 continue
 
             if module_shape != largest_shape:
-                largest_shape = tuple(max(a, b) for a, b in zip(largest_shape, module_shape))
+                largest_shape = tuple(
+                    max(a, b) for a, b in zip(largest_shape, module_shape)
+                )
 
         if largest_shape is None:
             msg = "No layers types compatible with VeRA were found. Please check `peft_config.target_modules`."
@@ -145,13 +145,17 @@ class VeraModel(BaseTuner):
         self.vera_B = BufferDict({}, persistent=config.save_projection)
 
         # deterministic init of vera_A and vera_B if we know the key
-        generator = torch.Generator(device="cpu").manual_seed(config.projection_prng_key)
+        generator = torch.Generator(device="cpu").manual_seed(
+            config.projection_prng_key
+        )
         vera_A = _kaiming_init((config.r, linear_in_dim), generator=generator)
         vera_B = _kaiming_init((linear_out_dim, config.r), generator=generator)
         self.vera_A[adapter_name] = vera_A
         self.vera_B[adapter_name] = vera_B
 
-    def _pre_injection_hook(self, model: nn.Module, config: VeraConfig, adapter_name: str) -> None:
+    def _pre_injection_hook(
+        self, model: nn.Module, config: VeraConfig, adapter_name: str
+    ) -> None:
         self._init_vera_A_vera_B(config, adapter_name)
 
     def _check_new_adapter_config(self, config: VeraConfig) -> None:
@@ -181,7 +185,9 @@ class VeraModel(BaseTuner):
                     f"previous config had {existing_config.projection_prng_key}."
                 )
 
-        save_project_unique_values = sorted({config.save_projection for config in self.peft_config.values()})
+        save_project_unique_values = sorted(
+            {config.save_projection for config in self.peft_config.values()}
+        )
         if len(save_project_unique_values) > 1:
             raise ValueError(
                 "VeRA projection weights must be saved for all adapters or none, but got multiple different values: "
@@ -227,7 +233,9 @@ class VeraModel(BaseTuner):
                 d_initial=vera_config.d_initial,
             )
         else:
-            new_module = self._create_new_module(vera_config, self.vera_A, self.vera_B, adapter_name, target, **kwargs)
+            new_module = self._create_new_module(
+                vera_config, self.vera_A, self.vera_B, adapter_name, target, **kwargs
+            )
             if adapter_name not in self.active_adapter:
                 # adding an additional adapter: it is not automatically trainable
                 new_module.requires_grad_(False)
@@ -276,10 +284,16 @@ class VeraModel(BaseTuner):
                         p.requires_grad = True
             elif bias == "vera_only":
                 for m in model.modules():
-                    if isinstance(m, VeraLayer) and hasattr(m, "bias") and m.bias is not None:
+                    if (
+                        isinstance(m, VeraLayer)
+                        and hasattr(m, "bias")
+                        and m.bias is not None
+                    ):
                         m.bias.requires_grad = True
             else:
-                raise NotImplementedError(f"Requested bias: {bias}, is not implemented.")
+                raise NotImplementedError(
+                    f"Requested bias: {bias}, is not implemented."
+                )
 
     @staticmethod
     def _create_new_module(vera_config, vera_A, vera_B, adapter_name, target, **kwargs):
@@ -327,14 +341,19 @@ class VeraModel(BaseTuner):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.model, name)
 
     def get_peft_config_as_dict(self, inference: bool = False):
         config_dict = {}
         for key, value in self.peft_config.items():
-            config = {k: v.value if isinstance(v, Enum) else v for k, v in asdict(value).items()}
+            config = {
+                k: v.value if isinstance(v, Enum) else v
+                for k, v in asdict(value).items()
+            }
             if inference:
                 config["inference_mode"] = True
         config_dict[key] = config
@@ -363,7 +382,9 @@ class VeraModel(BaseTuner):
         for module in self.model.modules():
             if isinstance(module, VeraLayer):
                 if module.merged:
-                    warnings.warn("Adapter cannot be set when the model is merged. Unmerging the model first.")
+                    warnings.warn(
+                        "Adapter cannot be set when the model is merged. Unmerging the model first."
+                    )
                     module.unmerge()
                 module.set_adapter(adapter_name)
         self.active_adapter = adapter_name
@@ -371,10 +392,15 @@ class VeraModel(BaseTuner):
     @staticmethod
     def _prepare_adapter_config(peft_config, model_config):
         if peft_config.target_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_VERA_TARGET_MODULES_MAPPING:
+            if (
+                model_config["model_type"]
+                not in TRANSFORMERS_MODELS_TO_VERA_TARGET_MODULES_MAPPING
+            ):
                 raise ValueError("Please specify `target_modules` in `peft_config`")
             peft_config.target_modules = set(
-                TRANSFORMERS_MODELS_TO_VERA_TARGET_MODULES_MAPPING[model_config["model_type"]]
+                TRANSFORMERS_MODELS_TO_VERA_TARGET_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
             )
         return peft_config
 
@@ -398,10 +424,14 @@ class VeraModel(BaseTuner):
                 if merge:
                     target.merge(safe_merge=safe_merge, adapter_names=adapter_names)
 
-                self._replace_module(parent, target_name, target.get_base_layer(), target)
+                self._replace_module(
+                    parent, target_name, target.get_base_layer(), target
+                )
             elif isinstance(target, ModulesToSaveWrapper):
                 # save any additional trainable modules part of `modules_to_save`
-                setattr(parent, target_name, target.modules_to_save[target.active_adapter])
+                setattr(
+                    parent, target_name, target.modules_to_save[target.active_adapter]
+                )
 
         return self.model
 
@@ -429,7 +459,10 @@ class VeraModel(BaseTuner):
         self.active_adapter = new_adapter or []
 
     def merge_and_unload(
-        self, progressbar: bool = False, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+        self,
+        progressbar: bool = False,
+        safe_merge: bool = False,
+        adapter_names: Optional[list[str]] = None,
     ):
         r"""
         This method merges the Vera layers into the base model. This is needed if someone wants to use the base model

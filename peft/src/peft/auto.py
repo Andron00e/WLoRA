@@ -18,27 +18,18 @@ import importlib
 import os
 from typing import Optional
 
-from transformers import (
-    AutoModel,
-    AutoModelForCausalLM,
-    AutoModelForQuestionAnswering,
-    AutoModelForSeq2SeqLM,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    AutoTokenizer,
-)
+from transformers import (AutoModel, AutoModelForCausalLM,
+                          AutoModelForQuestionAnswering, AutoModelForSeq2SeqLM,
+                          AutoModelForSequenceClassification,
+                          AutoModelForTokenClassification, AutoTokenizer)
 
 from .config import PeftConfig
 from .mapping import MODEL_TYPE_TO_PEFT_MODEL_MAPPING
-from .peft_model import (
-    PeftModel,
-    PeftModelForCausalLM,
-    PeftModelForFeatureExtraction,
-    PeftModelForQuestionAnswering,
-    PeftModelForSeq2SeqLM,
-    PeftModelForSequenceClassification,
-    PeftModelForTokenClassification,
-)
+from .peft_model import (PeftModel, PeftModelForCausalLM,
+                         PeftModelForFeatureExtraction,
+                         PeftModelForQuestionAnswering, PeftModelForSeq2SeqLM,
+                         PeftModelForSequenceClassification,
+                         PeftModelForTokenClassification)
 from .utils.constants import TOKENIZER_CONFIG_NAME
 from .utils.other import check_file_exists_on_hf_hub
 
@@ -70,7 +61,9 @@ class _BaseAutoPeftModel:
         are passed along to `PeftConfig` that automatically takes care of filtering the kwargs of the Hub methods and
         the config object init.
         """
-        peft_config = PeftConfig.from_pretrained(pretrained_model_name_or_path, revision=revision, **kwargs)
+        peft_config = PeftConfig.from_pretrained(
+            pretrained_model_name_or_path, revision=revision, **kwargs
+        )
         base_model_path = peft_config.base_model_name_or_path
         base_model_revision = peft_config.revision
 
@@ -91,7 +84,9 @@ class _BaseAutoPeftModel:
                     f"Expected target PEFT class: {expected_target_class.__name__}, but you have asked for: {cls._target_peft_class.__name__ }"
                     " make sure that you are loading the correct model for your task type."
                 )
-        elif task_type is None and getattr(peft_config, "auto_mapping", None) is not None:
+        elif (
+            task_type is None and getattr(peft_config, "auto_mapping", None) is not None
+        ):
             auto_mapping = getattr(peft_config, "auto_mapping", None)
             base_model_class = auto_mapping["base_model_class"]
             parent_library_name = auto_mapping["parent_library"]
@@ -103,10 +98,14 @@ class _BaseAutoPeftModel:
                 "Cannot infer the auto class from the config, please make sure that you are loading the correct model for your task type."
             )
 
-        base_model = target_class.from_pretrained(base_model_path, revision=base_model_revision, **kwargs)
+        base_model = target_class.from_pretrained(
+            base_model_path, revision=base_model_revision, **kwargs
+        )
 
         tokenizer_exists = False
-        if os.path.exists(os.path.join(pretrained_model_name_or_path, TOKENIZER_CONFIG_NAME)):
+        if os.path.exists(
+            os.path.join(pretrained_model_name_or_path, TOKENIZER_CONFIG_NAME)
+        ):
             tokenizer_exists = True
         else:
             token = kwargs.get("token", None)
@@ -123,7 +122,8 @@ class _BaseAutoPeftModel:
 
         if tokenizer_exists:
             tokenizer = AutoTokenizer.from_pretrained(
-                pretrained_model_name_or_path, trust_remote_code=kwargs.get("trust_remote_code", False)
+                pretrained_model_name_or_path,
+                trust_remote_code=kwargs.get("trust_remote_code", False),
             )
             base_model.resize_token_embeddings(len(tokenizer))
 

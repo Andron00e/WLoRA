@@ -16,22 +16,15 @@ import unittest
 
 import torch
 
-from peft import (
-    AutoPeftModel,
-    AutoPeftModelForCausalLM,
-    AutoPeftModelForFeatureExtraction,
-    AutoPeftModelForQuestionAnswering,
-    AutoPeftModelForSeq2SeqLM,
-    AutoPeftModelForSequenceClassification,
-    AutoPeftModelForTokenClassification,
-    PeftModel,
-    PeftModelForCausalLM,
-    PeftModelForFeatureExtraction,
-    PeftModelForQuestionAnswering,
-    PeftModelForSeq2SeqLM,
-    PeftModelForSequenceClassification,
-    PeftModelForTokenClassification,
-)
+from peft import (AutoPeftModel, AutoPeftModelForCausalLM,
+                  AutoPeftModelForFeatureExtraction,
+                  AutoPeftModelForQuestionAnswering, AutoPeftModelForSeq2SeqLM,
+                  AutoPeftModelForSequenceClassification,
+                  AutoPeftModelForTokenClassification, PeftModel,
+                  PeftModelForCausalLM, PeftModelForFeatureExtraction,
+                  PeftModelForQuestionAnswering, PeftModelForSeq2SeqLM,
+                  PeftModelForSequenceClassification,
+                  PeftModelForTokenClassification)
 from peft.utils import infer_device
 
 
@@ -50,14 +43,18 @@ class PeftAutoModelTester(unittest.TestCase):
             assert isinstance(model, PeftModelForCausalLM)
 
         # check if kwargs are passed correctly
-        model = AutoPeftModelForCausalLM.from_pretrained(model_id, torch_dtype=self.dtype)
+        model = AutoPeftModelForCausalLM.from_pretrained(
+            model_id, torch_dtype=self.dtype
+        )
         assert isinstance(model, PeftModelForCausalLM)
         assert model.base_model.lm_head.weight.dtype == self.dtype
 
         adapter_name = "default"
         is_trainable = False
         # This should work
-        _ = AutoPeftModelForCausalLM.from_pretrained(model_id, adapter_name, is_trainable, torch_dtype=self.dtype)
+        _ = AutoPeftModelForCausalLM.from_pretrained(
+            model_id, adapter_name, is_trainable, torch_dtype=self.dtype
+        )
 
     def test_peft_causal_lm_extended_vocab(self):
         model_id = "peft-internal-testing/tiny-random-OPTForCausalLM-extended-vocab"
@@ -65,14 +62,18 @@ class PeftAutoModelTester(unittest.TestCase):
         assert isinstance(model, PeftModelForCausalLM)
 
         # check if kwargs are passed correctly
-        model = AutoPeftModelForCausalLM.from_pretrained(model_id, torch_dtype=self.dtype)
+        model = AutoPeftModelForCausalLM.from_pretrained(
+            model_id, torch_dtype=self.dtype
+        )
         assert isinstance(model, PeftModelForCausalLM)
         assert model.base_model.lm_head.weight.dtype == self.dtype
 
         adapter_name = "default"
         is_trainable = False
         # This should work
-        _ = AutoPeftModelForCausalLM.from_pretrained(model_id, adapter_name, is_trainable, torch_dtype=self.dtype)
+        _ = AutoPeftModelForCausalLM.from_pretrained(
+            model_id, adapter_name, is_trainable, torch_dtype=self.dtype
+        )
 
     def test_peft_seq2seq_lm(self):
         model_id = "peft-internal-testing/tiny_T5ForSeq2SeqLM-lora"
@@ -86,14 +87,18 @@ class PeftAutoModelTester(unittest.TestCase):
             assert isinstance(model, PeftModelForSeq2SeqLM)
 
         # check if kwargs are passed correctly
-        model = AutoPeftModelForSeq2SeqLM.from_pretrained(model_id, torch_dtype=self.dtype)
+        model = AutoPeftModelForSeq2SeqLM.from_pretrained(
+            model_id, torch_dtype=self.dtype
+        )
         assert isinstance(model, PeftModelForSeq2SeqLM)
         assert model.base_model.lm_head.weight.dtype == self.dtype
 
         adapter_name = "default"
         is_trainable = False
         # This should work
-        _ = AutoPeftModelForSeq2SeqLM.from_pretrained(model_id, adapter_name, is_trainable, torch_dtype=self.dtype)
+        _ = AutoPeftModelForSeq2SeqLM.from_pretrained(
+            model_id, adapter_name, is_trainable, torch_dtype=self.dtype
+        )
 
     def test_peft_sequence_cls(self):
         model_id = "peft-internal-testing/tiny_OPTForSequenceClassification-lora"
@@ -107,7 +112,9 @@ class PeftAutoModelTester(unittest.TestCase):
             assert isinstance(model, PeftModelForSequenceClassification)
 
         # check if kwargs are passed correctly
-        model = AutoPeftModelForSequenceClassification.from_pretrained(model_id, torch_dtype=self.dtype)
+        model = AutoPeftModelForSequenceClassification.from_pretrained(
+            model_id, torch_dtype=self.dtype
+        )
         assert isinstance(model, PeftModelForSequenceClassification)
         assert model.score.original_module.weight.dtype == self.dtype
 
@@ -130,7 +137,9 @@ class PeftAutoModelTester(unittest.TestCase):
             assert isinstance(model, PeftModelForTokenClassification)
 
         # check if kwargs are passed correctly
-        model = AutoPeftModelForTokenClassification.from_pretrained(model_id, torch_dtype=self.dtype)
+        model = AutoPeftModelForTokenClassification.from_pretrained(
+            model_id, torch_dtype=self.dtype
+        )
         assert isinstance(model, PeftModelForTokenClassification)
         assert model.base_model.classifier.original_module.weight.dtype == self.dtype
 
@@ -153,7 +162,9 @@ class PeftAutoModelTester(unittest.TestCase):
             assert isinstance(model, PeftModelForQuestionAnswering)
 
         # check if kwargs are passed correctly
-        model = AutoPeftModelForQuestionAnswering.from_pretrained(model_id, torch_dtype=self.dtype)
+        model = AutoPeftModelForQuestionAnswering.from_pretrained(
+            model_id, torch_dtype=self.dtype
+        )
         assert isinstance(model, PeftModelForQuestionAnswering)
         assert model.base_model.qa_outputs.original_module.weight.dtype == self.dtype
 
@@ -176,7 +187,9 @@ class PeftAutoModelTester(unittest.TestCase):
             assert isinstance(model, PeftModelForFeatureExtraction)
 
         # check if kwargs are passed correctly
-        model = AutoPeftModelForFeatureExtraction.from_pretrained(model_id, torch_dtype=self.dtype)
+        model = AutoPeftModelForFeatureExtraction.from_pretrained(
+            model_id, torch_dtype=self.dtype
+        )
         assert isinstance(model, PeftModelForFeatureExtraction)
         assert model.base_model.model.decoder.embed_tokens.weight.dtype == self.dtype
 
@@ -201,9 +214,14 @@ class PeftAutoModelTester(unittest.TestCase):
         # check if kwargs are passed correctly
         model = AutoPeftModel.from_pretrained(model_id, torch_dtype=self.dtype)
         assert isinstance(model, PeftModel)
-        assert model.base_model.model.model.encoder.embed_positions.weight.dtype == self.dtype
+        assert (
+            model.base_model.model.model.encoder.embed_positions.weight.dtype
+            == self.dtype
+        )
 
         adapter_name = "default"
         is_trainable = False
         # This should work
-        _ = AutoPeftModel.from_pretrained(model_id, adapter_name, is_trainable, torch_dtype=self.dtype)
+        _ = AutoPeftModel.from_pretrained(
+            model_id, adapter_name, is_trainable, torch_dtype=self.dtype
+        )

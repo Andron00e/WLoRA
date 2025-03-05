@@ -28,11 +28,13 @@ from skimage.io import imread
 from torchvision.utils import save_image
 from tqdm import tqdm
 from transformers import AutoTokenizer
+
 from utils.args_loader import parse_args
 from utils.dataset import make_dataset
 
-
-detect_model = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device="cuda:0", flip_input=False)
+detect_model = face_alignment.FaceAlignment(
+    face_alignment.LandmarksType.TWO_D, device="cuda:0", flip_input=False
+)
 
 # with open('./data/celebhq-text/prompt_val_blip_full.json', 'rt') as f:    # fill50k, COCO
 #     for line in f:
@@ -73,7 +75,13 @@ def plot_kpts(image, kpts, color="g"):
         if i in end_list:
             continue
         ed = kpts[i + 1, :2]
-        image = cv2.line(image, (int(st[0]), int(st[1])), (int(ed[0]), int(ed[1])), (255, 255, 255), radius)
+        image = cv2.line(
+            image,
+            (int(st[0]), int(st[1])),
+            (int(ed[0]), int(ed[1])),
+            (255, 255, 255),
+            radius,
+        )
     return image
 
 
@@ -123,13 +131,17 @@ def generate_landmark2d(dataset, input_dir, pred_lmk_dir, gt_lmk_dir, vis=False)
                 vis_path = os.path.join(pred_lmk_dir, f"{idx}_overlay.jpg")
                 image = cv2.imread(imagepath)
                 image_point = plot_kpts(image, pred_kpt)
-                cv2.imwrite(vis_path, np.concatenate([image_point, gt_lmk_image], axis=1))
+                cv2.imwrite(
+                    vis_path, np.concatenate([image_point, gt_lmk_image], axis=1)
+                )
 
                 # visualize gt landmarks
                 vis_path = os.path.join(gt_lmk_dir, f"{idx}_overlay.jpg")
                 image = cv2.imread(gt_img_path)
                 image_point = plot_kpts(image, gt_kpt)
-                cv2.imwrite(vis_path, np.concatenate([image_point, gt_lmk_image], axis=1))
+                cv2.imwrite(
+                    vis_path, np.concatenate([image_point, gt_lmk_image], axis=1)
+                )
 
 
 def landmark_comparison(val_dataset, lmk_dir, gt_lmk_dir):
@@ -168,7 +180,9 @@ def main(args):
 
     # Load the tokenizer
     if args.tokenizer_name:
-        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, revision=args.revision, use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained(
+            args.tokenizer_name, revision=args.revision, use_fast=False
+        )
     elif args.pretrained_model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(
             args.pretrained_model_name_or_path,
@@ -189,9 +203,13 @@ def main(args):
 
     input_dir = os.path.join(args.output_dir, "results")
 
-    generate_landmark2d(val_dataset, input_dir, pred_lmk_dir, gt_lmk_dir, args.vis_overlays)
+    generate_landmark2d(
+        val_dataset, input_dir, pred_lmk_dir, gt_lmk_dir, args.vis_overlays
+    )
 
-    if count_txt_files(pred_lmk_dir) == len(val_dataset) and count_txt_files(gt_lmk_dir) == len(val_dataset):
+    if count_txt_files(pred_lmk_dir) == len(val_dataset) and count_txt_files(
+        gt_lmk_dir
+    ) == len(val_dataset):
         landmark_comparison(val_dataset, pred_lmk_dir, gt_lmk_dir)
 
 

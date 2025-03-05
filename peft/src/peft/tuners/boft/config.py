@@ -81,12 +81,19 @@ class BOFTConfig(PeftConfig):
             "example": "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' ",
         },
     )
-    boft_dropout: float = field(default=0.0, metadata={"help": "BOFT multiplicative dropout"})
+    boft_dropout: float = field(
+        default=0.0, metadata={"help": "BOFT multiplicative dropout"}
+    )
     fan_in_fan_out: bool = field(
         default=False,
-        metadata={"help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"},
+        metadata={
+            "help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"
+        },
     )
-    bias: str = field(default="none", metadata={"help": "Bias type for BOFT. Can be 'none', 'all' or 'boft_only'"})
+    bias: str = field(
+        default="none",
+        metadata={"help": "Bias type for BOFT. Can be 'none', 'all' or 'boft_only'"},
+    )
     modules_to_save: Optional[List[str]] = field(
         default=None,
         metadata={
@@ -122,10 +129,14 @@ class BOFTConfig(PeftConfig):
     def __post_init__(self):
         self.peft_type = PeftType.BOFT
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )
         if self.boft_block_size == 0 and self.boft_block_num == 0:
-            raise ValueError("You must specify either boft_block_size or boft_block_num.")
+            raise ValueError(
+                "You must specify either boft_block_size or boft_block_num."
+            )
         if not (self.boft_block_size != 0) ^ (self.boft_block_num != 0):
             raise ValueError(
                 f"You can only specify either boft_block_size ({self.boft_block_size}) or boft_block_num ({self.boft_block_num}), "

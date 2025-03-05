@@ -22,7 +22,8 @@ import unittest
 import torch
 import torch.nn.init as init
 
-from peft import LoraConfig, PeftModel, get_peft_model, get_peft_model_state_dict
+from peft import (LoraConfig, PeftModel, get_peft_model,
+                  get_peft_model_state_dict)
 
 from .testing_utils import require_torch_gpu
 
@@ -33,7 +34,8 @@ def is_megatron_available() -> bool:
 
 if is_megatron_available():
     from megatron.core import parallel_state, tensor_parallel
-    from megatron.core.tensor_parallel.random import model_parallel_cuda_manual_seed
+    from megatron.core.tensor_parallel.random import \
+        model_parallel_cuda_manual_seed
     from megatron.core.transformer.module import MegatronModule
     from megatron.core.transformer.transformer_config import TransformerConfig
 
@@ -41,13 +43,17 @@ if is_megatron_available():
     rank = 0
 
     def initialize_distributed():
-        print(f"Initializing torch.distributed with rank: {rank}, world_size: {world_size}")
+        print(
+            f"Initializing torch.distributed with rank: {rank}, world_size: {world_size}"
+        )
         torch.cuda.set_device(0)
         init_method = "tcp://"
         master_ip = os.getenv("MASTER_ADDR", "localhost")
         master_port = os.getenv("MASTER_PORT", "6001")
         init_method += master_ip + ":" + master_port
-        torch.distributed.init_process_group(backend="nccl", world_size=world_size, rank=rank, init_method=init_method)
+        torch.distributed.init_process_group(
+            backend="nccl", world_size=world_size, rank=rank, init_method=init_method
+        )
 
     def destroy_model_parallel():
         parallel_state.destroy_model_parallel()

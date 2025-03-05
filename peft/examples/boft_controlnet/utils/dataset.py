@@ -7,6 +7,7 @@ from datasets import load_dataset
 from diffusers import DDIMScheduler
 from PIL import Image
 from torchvision import transforms
+
 from utils.pipeline_controlnet import LightControlNetPipeline
 
 
@@ -68,7 +69,9 @@ def log_validation(val_dataset, text_encoder, unet, controlnet, args, accelerato
             validation_prompt = log["validation_prompt"]
             validation_image = log["validation_image"]
 
-            formatted_images.append(wandb.Image(validation_image, caption="Controlnet conditioning"))
+            formatted_images.append(
+                wandb.Image(validation_image, caption="Controlnet conditioning")
+            )
 
             image = wandb.Image(image, caption=validation_prompt)
             formatted_images.append(image)
@@ -148,13 +151,19 @@ def make_dataset(args, tokenizer, accelerator, split="train"):
                     f"Caption column `{caption_column}` should contain either strings or lists of strings."
                 )
         inputs = tokenizer(
-            captions, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
+            captions,
+            max_length=tokenizer.model_max_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
         )
         return inputs.input_ids
 
     image_transforms = transforms.Compose(
         [
-            transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.Resize(
+                args.resolution, interpolation=transforms.InterpolationMode.BILINEAR
+            ),
             transforms.CenterCrop(args.resolution),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
@@ -163,7 +172,9 @@ def make_dataset(args, tokenizer, accelerator, split="train"):
 
     conditioning_image_transforms = transforms.Compose(
         [
-            transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.Resize(
+                args.resolution, interpolation=transforms.InterpolationMode.BILINEAR
+            ),
             transforms.CenterCrop(args.resolution),
             transforms.ToTensor(),
         ]
@@ -173,8 +184,12 @@ def make_dataset(args, tokenizer, accelerator, split="train"):
         images = [image.convert("RGB") for image in examples[image_column]]
         images = [image_transforms(image) for image in images]
 
-        conditioning_images = [image.convert("RGB") for image in examples[conditioning_image_column]]
-        conditioning_images = [conditioning_image_transforms(image) for image in conditioning_images]
+        conditioning_images = [
+            image.convert("RGB") for image in examples[conditioning_image_column]
+        ]
+        conditioning_images = [
+            conditioning_image_transforms(image) for image in conditioning_images
+        ]
 
         examples["pixel_values"] = images
         examples["conditioning_pixel_values"] = conditioning_images
@@ -184,7 +199,11 @@ def make_dataset(args, tokenizer, accelerator, split="train"):
 
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
-            dataset[split] = dataset[split].shuffle(seed=args.seed).select(range(args.max_train_samples))
+            dataset[split] = (
+                dataset[split]
+                .shuffle(seed=args.seed)
+                .select(range(args.max_train_samples))
+            )
         # Set the training transforms
         split_dataset = dataset[split].with_transform(preprocess_train)
 
@@ -195,8 +214,12 @@ def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-    conditioning_pixel_values = torch.stack([example["conditioning_pixel_values"] for example in examples])
-    conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
+    conditioning_pixel_values = torch.stack(
+        [example["conditioning_pixel_values"] for example in examples]
+    )
+    conditioning_pixel_values = conditioning_pixel_values.to(
+        memory_format=torch.contiguous_format
+    ).float()
 
     input_ids = torch.stack([example["input_ids"] for example in examples])
 

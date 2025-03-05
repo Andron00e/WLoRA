@@ -56,7 +56,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
         LoraLayer.__init__(self, base_layer=base_layer, **kwargs)
 
         if use_dora:
-            raise ValueError(f"{self.__class__.__name__} does not support DoRA yet, please set it to False")
+            raise ValueError(
+                f"{self.__class__.__name__} does not support DoRA yet, please set it to False"
+            )
 
         self.backend = backend
         self.is_parallel_a = isinstance(base_layer, backend.RowParallelLinear)
@@ -109,7 +111,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
         **parallel_linear_kwargs,
     ):
         if r <= 0:
-            raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
+            raise ValueError(
+                f"`r` should be a positive integer value but the value passed is {r}"
+            )
         self.r[adapter_name] = r
         self.lora_alpha[adapter_name] = lora_alpha
         if lora_dropout > 0.0:
@@ -132,9 +136,19 @@ class LoraParallelLinear(nn.Module, LoraLayer):
                 init_method=init_method,
                 config=megatron_config,
             )
-            lora_b = nn.Linear(in_features=r, out_features=self.out_features, bias=False, dtype=torch.float32)
+            lora_b = nn.Linear(
+                in_features=r,
+                out_features=self.out_features,
+                bias=False,
+                dtype=torch.float32,
+            )
         else:
-            lora_a = nn.Linear(in_features=self.in_features, out_features=r, bias=False, dtype=torch.float32)
+            lora_a = nn.Linear(
+                in_features=self.in_features,
+                out_features=r,
+                bias=False,
+                dtype=torch.float32,
+            )
             lora_b = self.backend.ColumnParallelLinear(
                 input_size=r,
                 output_size=self.out_features,
@@ -154,7 +168,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
         if isinstance(init_lora_weights, str) and init_lora_weights.startswith("pissa"):
             with gather_params_ctx(self.get_base_layer().weight):
                 self.pissa_init(adapter_name, init_lora_weights)
-        elif isinstance(init_lora_weights, str) and init_lora_weights.lower() == "olora":
+        elif (
+            isinstance(init_lora_weights, str) and init_lora_weights.lower() == "olora"
+        ):
             with gather_params_ctx(self.get_base_layer().weight):
                 self.olora_init(adapter_name)
         elif init_lora_weights == "loftq":
@@ -185,7 +201,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
                 self.unmerge()
             result, bias = self.base_layer(x, *args, **kwargs)
         elif adapter_names is not None:
-            raise ValueError(f"{self.__class__.__name__} does not support mixed_batch_forward yet.")
+            raise ValueError(
+                f"{self.__class__.__name__} does not support mixed_batch_forward yet."
+            )
         elif self.merged:
             result, bias = self.base_layer(x, *args, **kwargs)
         else:
@@ -223,7 +241,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
             result = result.to(torch_result_dtype)
         return result, bias
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+    ) -> None:
         """
         Merge the active adapter weights into the base weights
 
@@ -256,15 +276,24 @@ class LoraParallelLinear(nn.Module, LoraLayer):
                         # since delta_weight already includes scaling, set it to 1 here
                         weight_norm = (
                             self.lora_magnitude_vector[active_adapter]
-                            .get_weight_norm(orig_weights, transpose(delta_weight, self.fan_in_fan_out), scaling=1)
+                            .get_weight_norm(
+                                orig_weights,
+                                transpose(delta_weight, self.fan_in_fan_out),
+                                scaling=1,
+                            )
                             .detach()
                         )
                         # We need to cache weight_norm because it has to be based on the original weights. We
                         # cannot calculate it on the fly based on the merged weights when unmerging because its a
                         # different value
                         self._cache_store(f"{active_adapter}-weight_norm", weight_norm)
-                        dora_factor = self.lora_magnitude_vector[active_adapter].weight / weight_norm
-                        dora_factor = transpose(dora_factor.view(-1, 1), self.fan_in_fan_out)
+                        dora_factor = (
+                            self.lora_magnitude_vector[active_adapter].weight
+                            / weight_norm
+                        )
+                        dora_factor = transpose(
+                            dora_factor.view(-1, 1), self.fan_in_fan_out
+                        )
                         orig_weights = dora_factor * (orig_weights + delta_weight)
 
                     if not torch.isfinite(orig_weights).all():
@@ -283,7 +312,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
                         weight_norm = (
                             self.lora_magnitude_vector[active_adapter]
                             .get_weight_norm(
-                                base_layer.weight, transpose(delta_weight, self.fan_in_fan_out), scaling=1
+                                base_layer.weight,
+                                transpose(delta_weight, self.fan_in_fan_out),
+                                scaling=1,
                             )
                             .detach()
                         )
@@ -291,9 +322,16 @@ class LoraParallelLinear(nn.Module, LoraLayer):
                         # cannot calculate it on the fly based on the merged weights when unmerging because its a
                         # different value
                         self._cache_store(f"{active_adapter}-weight_norm", weight_norm)
-                        dora_factor = self.lora_magnitude_vector[active_adapter].weight / weight_norm
-                        dora_factor = transpose(dora_factor.view(-1, 1), self.fan_in_fan_out)
-                        new_weight = dora_factor * (base_layer.weight.data + delta_weight)
+                        dora_factor = (
+                            self.lora_magnitude_vector[active_adapter].weight
+                            / weight_norm
+                        )
+                        dora_factor = transpose(
+                            dora_factor.view(-1, 1), self.fan_in_fan_out
+                        )
+                        new_weight = dora_factor * (
+                            base_layer.weight.data + delta_weight
+                        )
                         base_layer.weight.data = new_weight
 
                 self.merged_adapters.append(active_adapter)
@@ -314,7 +352,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
                     weight.data -= delta_weight
                 else:
                     weight_norm = self._cache_pop(f"{active_adapter}-weight_norm")
-                    dora_factor = self.lora_magnitude_vector[active_adapter].weight / weight_norm
+                    dora_factor = (
+                        self.lora_magnitude_vector[active_adapter].weight / weight_norm
+                    )
                     weight_orig = weight.data / dora_factor.view(-1, 1) - delta_weight
                     weight.data = weight_orig
 
@@ -332,7 +372,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
         # In case users wants to merge the adapter weights that are in
         # (b)float16 while being on CPU, we need to cast the weights to float32, perform the merge and then cast back to
         # (b)float16 because some CPUs have slow bf16/fp16 matmuls.
-        cast_to_fp32 = device.type == "cpu" and (dtype == torch.float16 or dtype == torch.bfloat16)
+        cast_to_fp32 = device.type == "cpu" and (
+            dtype == torch.float16 or dtype == torch.bfloat16
+        )
 
         weight_A = self.lora_A[adapter].weight
         weight_B = self.lora_B[adapter].weight
@@ -341,7 +383,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
             weight_A = weight_A.float()
             weight_B = weight_B.float()
 
-        output_tensor = transpose(weight_B @ weight_A, self.fan_in_fan_out) * self.scaling[adapter]
+        output_tensor = (
+            transpose(weight_B @ weight_A, self.fan_in_fan_out) * self.scaling[adapter]
+        )
 
         if cast_to_fp32:
             output_tensor = output_tensor.to(dtype=dtype)
@@ -377,12 +421,17 @@ def dispatch_megatron(
 
     if megatron_core and isinstance(
         target_base_layer,
-        (megatron_core.tensor_parallel.ColumnParallelLinear, megatron_core.tensor_parallel.RowParallelLinear),
+        (
+            megatron_core.tensor_parallel.ColumnParallelLinear,
+            megatron_core.tensor_parallel.RowParallelLinear,
+        ),
     ):
         megatron_kwargs = kwargs.copy()
         megatron_config = lora_config.megatron_config
         if isinstance(megatron_config, dict):
-            transformer_config_class = megatron_core.transformer.transformer_config.TransformerConfig
+            transformer_config_class = (
+                megatron_core.transformer.transformer_config.TransformerConfig
+            )
             megatron_config = transformer_config_class(**lora_config.megatron_config)
         megatron_kwargs["megatron_config"] = megatron_config
         if megatron_kwargs["fan_in_fan_out"]:
@@ -393,7 +442,10 @@ def dispatch_megatron(
             )
             megatron_kwargs["fan_in_fan_out"] = lora_config.fan_in_fan_out = False
         new_module = LoraParallelLinear(
-            base_layer=target, adapter_name=adapter_name, backend=megatron_core.tensor_parallel, **megatron_kwargs
+            base_layer=target,
+            adapter_name=adapter_name,
+            backend=megatron_core.tensor_parallel,
+            **megatron_kwargs,
         )
 
     return new_module

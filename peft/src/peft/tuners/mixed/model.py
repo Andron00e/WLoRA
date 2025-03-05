@@ -20,21 +20,40 @@ from torch import nn
 from tqdm import tqdm
 
 from peft.tuners import adalora, loha, lokr, lora, oft
-from peft.tuners.tuners_utils import BaseTuner, BaseTunerLayer, check_target_module_exists
-from peft.utils import (
-    TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING,
-    ModulesToSaveWrapper,
-    PeftType,
-    _get_submodules,
-    get_auto_gptq_quant_linear,
-)
-
+from peft.tuners.tuners_utils import (BaseTuner, BaseTunerLayer,
+                                      check_target_module_exists)
+from peft.utils import (TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING,
+                        ModulesToSaveWrapper, PeftType, _get_submodules,
+                        get_auto_gptq_quant_linear)
 
 # Collection of constants used for all tuners
-COMPATIBLE_TUNER_TYPES = (PeftType.LORA, PeftType.LOHA, PeftType.LOKR, PeftType.ADALORA, PeftType.OFT)
-PREFIXES = [lora.LoraModel.prefix, lokr.LoKrModel.prefix, loha.LoHaModel.prefix, oft.OFTModel.prefix]
-Configs = Union[lora.LoraConfig, loha.LoHaConfig, lokr.LoKrConfig, adalora.AdaLoraConfig, oft.OFTConfig]
-Layers = (lora.layer.LoraLayer, loha.layer.LoHaLayer, lokr.layer.LoKrLayer, adalora.layer.AdaLoraLayer, oft.OFTLayer)
+COMPATIBLE_TUNER_TYPES = (
+    PeftType.LORA,
+    PeftType.LOHA,
+    PeftType.LOKR,
+    PeftType.ADALORA,
+    PeftType.OFT,
+)
+PREFIXES = [
+    lora.LoraModel.prefix,
+    lokr.LoKrModel.prefix,
+    loha.LoHaModel.prefix,
+    oft.OFTModel.prefix,
+]
+Configs = Union[
+    lora.LoraConfig,
+    loha.LoHaConfig,
+    lokr.LoKrConfig,
+    adalora.AdaLoraConfig,
+    oft.OFTConfig,
+]
+Layers = (
+    lora.layer.LoraLayer,
+    loha.layer.LoHaLayer,
+    lokr.layer.LoKrLayer,
+    adalora.layer.AdaLoraLayer,
+    oft.OFTLayer,
+)
 
 
 class MixedModel(BaseTuner):
@@ -97,7 +116,9 @@ class MixedModel(BaseTuner):
         elif isinstance(config, oft.OFTConfig):
             oft.OFTModel._create_and_replace(self, config, *args, **kwargs)
         else:
-            raise ValueError(f"Unsupported config type {type(config)}, should be one of {COMPATIBLE_TUNER_TYPES}.")
+            raise ValueError(
+                f"Unsupported config type {type(config)}, should be one of {COMPATIBLE_TUNER_TYPES}."
+            )
 
     def _replace_module(self, parent, child_name, new_module, child) -> None:
         setattr(parent, child_name, new_module)
@@ -147,7 +168,11 @@ class MixedModel(BaseTuner):
             elif bias == "lora_only":
                 # TODO: check if this is needed for other supported types
                 for m in model.modules():
-                    if isinstance(m, Layers) and hasattr(m, "bias") and m.bias is not None:
+                    if (
+                        isinstance(m, Layers)
+                        and hasattr(m, "bias")
+                        and m.bias is not None
+                    ):
                         m.bias.requires_grad = True
             else:
                 raise ValueError(f"Requested bias: {bias}, is not implemented.")
@@ -157,25 +182,41 @@ class MixedModel(BaseTuner):
         gptq_quantization_config = kwargs.get("gptq_quantization_config", None)
         AutoGPTQQuantLinear = get_auto_gptq_quant_linear(gptq_quantization_config)
         if (gptq_quantization_config is not None) or (AutoGPTQQuantLinear is not None):
-            raise ValueError(f"GPTQ quantization not supported for {config.peft_type.value} (yet).")
+            raise ValueError(
+                f"GPTQ quantization not supported for {config.peft_type.value} (yet)."
+            )
 
         loaded_in_8bit = kwargs.pop("loaded_in_8bit", False)
         loaded_in_4bit = kwargs.pop("loaded_in_4bit", False)
         if loaded_in_8bit or loaded_in_4bit:
-            raise ValueError(f"8bit and 4bit quantization not supported for {config.peft_type.value} (yet).")
+            raise ValueError(
+                f"8bit and 4bit quantization not supported for {config.peft_type.value} (yet)."
+            )
 
         if isinstance(config, adalora.AdaLoraConfig):
-            new_module = adalora.AdaLoraModel._create_new_module(config, adapter_name, target, **kwargs)
+            new_module = adalora.AdaLoraModel._create_new_module(
+                config, adapter_name, target, **kwargs
+            )
         elif isinstance(config, lora.LoraConfig):
-            new_module = lora.LoraModel._create_new_module(config, adapter_name, target, **kwargs)
+            new_module = lora.LoraModel._create_new_module(
+                config, adapter_name, target, **kwargs
+            )
         elif isinstance(config, loha.LoHaConfig):
-            new_module = loha.LoHaModel._create_new_module(config, adapter_name, target, **kwargs)
+            new_module = loha.LoHaModel._create_new_module(
+                config, adapter_name, target, **kwargs
+            )
         elif isinstance(config, lokr.LoKrConfig):
-            new_module = lokr.LoKrModel._create_new_module(config, adapter_name, target, **kwargs)
+            new_module = lokr.LoKrModel._create_new_module(
+                config, adapter_name, target, **kwargs
+            )
         elif isinstance(config, oft.OFTConfig):
-            new_module = oft.OFTModel._create_new_module(config, adapter_name, target, **kwargs)
+            new_module = oft.OFTModel._create_new_module(
+                config, adapter_name, target, **kwargs
+            )
         else:
-            raise ValueError(f"Unknown config type {type(config)}, should be one of {COMPATIBLE_TUNER_TYPES}.")
+            raise ValueError(
+                f"Unknown config type {type(config)}, should be one of {COMPATIBLE_TUNER_TYPES}."
+            )
         return new_module
 
     def __getattr__(self, name: str):
@@ -183,7 +224,9 @@ class MixedModel(BaseTuner):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.model, name)
 
@@ -210,7 +253,9 @@ class MixedModel(BaseTuner):
         for module in self.model.modules():
             if isinstance(module, Layers):
                 if module.merged:
-                    warnings.warn("Adapter cannot be set when the model is merged. Unmerging the model first.")
+                    warnings.warn(
+                        "Adapter cannot be set when the model is merged. Unmerging the model first."
+                    )
                     module.unmerge()
                 module.set_adapter(adapter_name)
         self.active_adapter = adapter_name
@@ -218,11 +263,16 @@ class MixedModel(BaseTuner):
     @staticmethod
     def _prepare_adapter_config(peft_config, model_config):
         if peft_config.target_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING:
+            if (
+                model_config["model_type"]
+                not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
+            ):
                 raise ValueError("Please specify `target_modules` in `peft_config`")
 
             peft_config.target_modules = set(
-                TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING[model_config["model_type"]]
+                TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
             )
         return peft_config
 
@@ -249,7 +299,11 @@ class MixedModel(BaseTuner):
                 layer_before.base_layer = layer_after.base_layer
             module.merge(safe_merge=safe_merge, adapter_names=adapter_names)
 
-        key_list = [key for key, _ in self.model.named_modules() if not any(prefix in key for prefix in PREFIXES)]
+        key_list = [
+            key
+            for key, _ in self.model.named_modules()
+            if not any(prefix in key for prefix in PREFIXES)
+        ]
         desc = "Unloading " + ("and merging " if merge else "") + "model"
 
         for key in tqdm(key_list, disable=not progressbar, desc=desc):
@@ -261,21 +315,27 @@ class MixedModel(BaseTuner):
             if hasattr(target, "base_layer"):
                 if merge:
                     merge_recursively(target)
-                self._replace_module(parent, target_name, target.get_base_layer(), target)
+                self._replace_module(
+                    parent, target_name, target.get_base_layer(), target
+                )
             elif isinstance(target, ModulesToSaveWrapper):
                 # save any additional trainable modules part of `modules_to_save`
                 new_module = target.modules_to_save[target.active_adapter]
                 if hasattr(new_module, "base_layer"):
                     # check if the module is itself a tuner layer
                     if merge:
-                        new_module.merge(safe_merge=safe_merge, adapter_names=adapter_names)
+                        new_module.merge(
+                            safe_merge=safe_merge, adapter_names=adapter_names
+                        )
                     new_module = new_module.get_base_layer()
                 setattr(parent, target_name, new_module)
 
         return self.model
 
     def add_weighted_adapter(self, *args: Any, **kwargs: Any) -> None:
-        raise NotImplementedError(f"Weighted adapters are not supported for {self.__class__.__name__} (yet).")
+        raise NotImplementedError(
+            f"Weighted adapters are not supported for {self.__class__.__name__} (yet)."
+        )
 
     def delete_adapter(self, adapter_name: Union[str, list[str]]) -> None:
         """
@@ -298,7 +358,11 @@ class MixedModel(BaseTuner):
         for adapter_name in adapter_names:
             del self.peft_config[adapter_name]
 
-            key_list = [key for key, _ in self.model.named_modules() if not any(prefix in key for prefix in PREFIXES)]
+            key_list = [
+                key
+                for key, _ in self.model.named_modules()
+                if not any(prefix in key for prefix in PREFIXES)
+            ]
             new_adapter = None
             for key in key_list:
                 _, target, _ = _get_submodules(self.model, key)
@@ -310,7 +374,10 @@ class MixedModel(BaseTuner):
         self.active_adapter = new_adapter or []
 
     def merge_and_unload(
-        self, progressbar: bool = False, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+        self,
+        progressbar: bool = False,
+        safe_merge: bool = False,
+        adapter_names: Optional[list[str]] = None,
     ) -> nn.Module:
         r"""
         This method merges the layers into the base model. This is needed if someone wants to use the base model as a

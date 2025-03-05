@@ -38,7 +38,9 @@ class QuantLinear(torch.nn.Module, LoraLayer):
         LoraLayer.__init__(self, base_layer)
 
         if use_dora:
-            raise ValueError(f"{self.__class__.__name__} does not support DoRA yet, please set it to False")
+            raise ValueError(
+                f"{self.__class__.__name__} does not support DoRA yet, please set it to False"
+            )
 
         # self.base_layer and self.quant_linear_module are the same; we need the former for consistency and the latter
         # for backwards compatibility
@@ -107,7 +109,9 @@ def dispatch_gptq(
     gptq_quantization_config = kwargs.get("gptq_quantization_config", None)
     AutoGPTQQuantLinear = get_auto_gptq_quant_linear(gptq_quantization_config)
 
-    if AutoGPTQQuantLinear is not None and isinstance(target_base_layer, AutoGPTQQuantLinear):
+    if AutoGPTQQuantLinear is not None and isinstance(
+        target_base_layer, AutoGPTQQuantLinear
+    ):
         new_module = QuantLinear(target, adapter_name, **kwargs)
         target.qweight = target_base_layer.qweight
 

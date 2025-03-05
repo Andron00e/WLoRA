@@ -25,7 +25,6 @@ from peft.utils.other import transpose
 
 from .layer import LoraLayer
 
-
 if is_hqq_available():
     from hqq.core.quantize import HQQLinear
 
@@ -58,7 +57,9 @@ if is_hqq_available():
                 use_dora=use_dora,
             )
 
-        def merge(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> None:
+        def merge(
+            self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+        ) -> None:
             """
             Merge the active adapter weights into the base weights
 
@@ -81,7 +82,10 @@ if is_hqq_available():
                     continue
 
                 layer = self.get_base_layer()
-                quant_config = {**copy.deepcopy(layer.quant_config), "offload_meta": layer.offload_meta}
+                quant_config = {
+                    **copy.deepcopy(layer.quant_config),
+                    "offload_meta": layer.offload_meta,
+                }
                 lora_data = self.get_delta_weight(active_adapter)
 
                 output = layer.dequantize()
@@ -90,19 +94,28 @@ if is_hqq_available():
                 else:
                     # handle dora
                     # since output already includes scaling, set it to 1 here
-                    weight_norm = self._get_weight_norm(output, lora_data, scaling=1).detach()
+                    weight_norm = self._get_weight_norm(
+                        output, lora_data, scaling=1
+                    ).detach()
                     # We need to cache weight_norm because it has to be based on the original weights. We
                     # cannot calculate it on the fly based on the merged weights when unmerging because its a
                     # different value
                     self._cache_store(f"{active_adapter}-weight_norm", weight_norm)
-                    dora_factor = self.lora_magnitude_vector[active_adapter] / weight_norm
+                    dora_factor = (
+                        self.lora_magnitude_vector[active_adapter] / weight_norm
+                    )
                     w_data = dora_factor.view(-1, 1) * (output + lora_data)
 
                 if safe_merge and not torch.isfinite(w_data).all():
                     raise ValueError(
                         f"NaNs detected in the merged weights. The adapter {active_adapter} seems to be broken"
                     )
-                new_hqq_layer = HQQLinear(None, quant_config, compute_dtype=layer.compute_dtype, device=layer.device)
+                new_hqq_layer = HQQLinear(
+                    None,
+                    quant_config,
+                    compute_dtype=layer.compute_dtype,
+                    device=layer.device,
+                )
                 quant_config.pop("offload_meta", None)
                 new_hqq_layer.quantize(w_data, **quant_config)
                 self.base_layer = new_hqq_layer
@@ -123,17 +136,27 @@ if is_hqq_available():
 
                 lora_data = self.get_delta_weight(active_adapter)
                 layer = self.get_base_layer()
-                quant_config = {**copy.deepcopy(layer.quant_config), "offload_meta": layer.offload_meta}
+                quant_config = {
+                    **copy.deepcopy(layer.quant_config),
+                    "offload_meta": layer.offload_meta,
+                }
                 output = layer.dequantize()
 
                 if not self.use_dora[active_adapter]:
                     w_data = output - lora_data
                 else:
                     weight_norm = self._cache_pop(f"{active_adapter}-weight_norm")
-                    dora_factor = self.lora_magnitude_vector[active_adapter] / weight_norm
+                    dora_factor = (
+                        self.lora_magnitude_vector[active_adapter] / weight_norm
+                    )
                     w_data = output.data / dora_factor.view(-1, 1) - lora_data
 
-                new_hqq_layer = HQQLinear(None, quant_config, compute_dtype=layer.compute_dtype, device=layer.device)
+                new_hqq_layer = HQQLinear(
+                    None,
+                    quant_config,
+                    compute_dtype=layer.compute_dtype,
+                    device=layer.device,
+                )
                 quant_config.pop("offload_meta", None)
                 new_hqq_layer.quantize(w_data, **quant_config)
                 self.base_layer = new_hqq_layer
@@ -157,7 +180,13 @@ if is_hqq_available():
             unique_adapters = set(adapter_names)
             sub_batch_indices_list = []
             for adapter in unique_adapters:
-                sub_batch_indices_list.append([index for index, item in enumerate(adapter_names) if item == adapter])
+                sub_batch_indices_list.append(
+                    [
+                        index
+                        for index, item in enumerate(adapter_names)
+                        if item == adapter
+                    ]
+                )
 
             for i, active_adapter in enumerate(unique_adapters):
                 if active_adapter == "__base__":
@@ -196,7 +225,9 @@ if is_hqq_available():
                     self.unmerge()
                 result = self.base_layer(x, *args, **kwargs)
             elif adapter_names is not None:
-                result = self._mixed_batch_forward(x, *args, adapter_names=adapter_names, **kwargs)
+                result = self._mixed_batch_forward(
+                    x, *args, adapter_names=adapter_names, **kwargs
+                )
             elif self.merged:
                 result = self.base_layer(x, *args, **kwargs)
             else:
@@ -220,7 +251,9 @@ if is_hqq_available():
                     if not self.use_dora[active_adapter]:
                         output = lora_B(lora_A(dropout(x))) * scaling
                     else:
-                        output = self._apply_dora(x, lora_A, lora_B, scaling, active_adapter)
+                        output = self._apply_dora(
+                            x, lora_A, lora_B, scaling, active_adapter
+                        )
                     if requires_conversion:
                         output = output.to(expected_dtype)
 

@@ -24,8 +24,9 @@ from peft.tuners.lora import LoraLayer
 from peft.tuners.tuners_utils import check_adapters_to_merge
 from peft.utils import transpose
 
-
-if packaging.version.parse(transformers.__version__) >= packaging.version.parse("4.33.0"):
+if packaging.version.parse(transformers.__version__) >= packaging.version.parse(
+    "4.33.0"
+):
     from transformers.integrations import deepspeed_config
 else:
     from transformers.deepspeed import deepspeed_config
@@ -34,7 +35,13 @@ else:
 class AdaLoraLayer(LoraLayer):
     # List all names of layers that may contain adapter weights
     # Note: ranknum doesn't need to be included as it is not an nn.Module
-    adapter_layer_names = ("lora_A", "lora_B", "lora_E", "lora_embedding_A", "lora_embedding_B")
+    adapter_layer_names = (
+        "lora_A",
+        "lora_B",
+        "lora_E",
+        "lora_embedding_A",
+        "lora_embedding_B",
+    )
     # All names of other parameters that may contain adapter-related parameters
     other_param_names = ("r", "lora_alpha", "scaling", "lora_dropout", "ranknum")
 
@@ -45,10 +52,14 @@ class AdaLoraLayer(LoraLayer):
         self.lora_B = nn.ParameterDict({})
         self.ranknum = nn.ParameterDict({})
 
-    def update_layer(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights):
+    def update_layer(
+        self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights
+    ):
         if r < 0:
             # note: r == 0 is allowed for AdaLora, see #1539
-            raise ValueError(f"`r` should be a positive integer or 0, but the value passed is {r}")
+            raise ValueError(
+                f"`r` should be a positive integer or 0, but the value passed is {r}"
+            )
 
         self.r[adapter_name] = r
         self.lora_alpha[adapter_name] = lora_alpha
@@ -105,7 +116,9 @@ class SVDLinear(nn.Module, AdaLoraLayer):
         self._active_adapter = adapter_name
         self.update_layer(adapter_name, r, lora_alpha, lora_dropout, init_lora_weights)
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+    ) -> None:
         """
         Merge the active adapter weights into the base weights
 
@@ -152,11 +165,16 @@ class SVDLinear(nn.Module, AdaLoraLayer):
         while len(self.merged_adapters) > 0:
             active_adapter = self.merged_adapters.pop()
             if active_adapter in self.lora_A.keys():
-                self.get_base_layer().weight.data -= self.get_delta_weight(active_adapter)
+                self.get_base_layer().weight.data -= self.get_delta_weight(
+                    active_adapter
+                )
 
     def get_delta_weight(self, adapter) -> torch.Tensor:
         return (
-            transpose(self.lora_B[adapter] @ (self.lora_A[adapter] * self.lora_E[adapter]), self.fan_in_fan_out)
+            transpose(
+                self.lora_B[adapter] @ (self.lora_A[adapter] * self.lora_E[adapter]),
+                self.fan_in_fan_out,
+            )
             * self.scaling[adapter]
             / (self.ranknum[adapter] + 1e-5)
         )
@@ -181,7 +199,9 @@ class SVDLinear(nn.Module, AdaLoraLayer):
                 ranknum = self.ranknum[active_adapter] + 1e-5
 
                 x = x.to(lora_A.dtype)
-                result += (dropout(x) @ (lora_A * lora_E).T @ lora_B.T) * scaling / ranknum
+                result += (
+                    (dropout(x) @ (lora_A * lora_E).T @ lora_B.T) * scaling / ranknum
+                )
 
         return result
 
@@ -245,7 +265,9 @@ class RankAllocator:
         else:
             # Budget decreasing with a cubic scheduler
             mul_coeff = 1 - (step - tinit) / (total_step - tfinal - tinit)
-            budget = int((self.init_bgt - self.target_bgt) * (mul_coeff**3) + self.target_bgt)
+            budget = int(
+                (self.init_bgt - self.target_bgt) * (mul_coeff**3) + self.target_bgt
+            )
             mask_ind = True if step % self.peft_config.deltaT == 0 else False
         return budget, mask_ind
 
@@ -266,10 +288,14 @@ class RankAllocator:
                     else:
                         self.ipt[n] = (p * p.grad).abs().detach()
                     # Sensitivity smoothing
-                    self.exp_avg_ipt[n] = self.beta1 * self.exp_avg_ipt[n] + (1 - self.beta1) * self.ipt[n]
+                    self.exp_avg_ipt[n] = (
+                        self.beta1 * self.exp_avg_ipt[n]
+                        + (1 - self.beta1) * self.ipt[n]
+                    )
                     # Uncertainty quantification
                     self.exp_avg_unc[n] = (
-                        self.beta2 * self.exp_avg_unc[n] + (1 - self.beta2) * (self.ipt[n] - self.exp_avg_ipt[n]).abs()
+                        self.beta2 * self.exp_avg_unc[n]
+                        + (1 - self.beta2) * (self.ipt[n] - self.exp_avg_ipt[n]).abs()
                     )
 
     def _element_score(self, n):
@@ -329,7 +355,9 @@ class RankAllocator:
             for n, p in model.named_parameters():
                 if f"lora_E.{self.adapter_name}" in n:
                     p.masked_fill_(triplet_ipt[n] <= mask_threshold, 0.0)
-                    rank_pattern[n] = (~(triplet_ipt[n] <= mask_threshold)).view(-1).tolist()
+                    rank_pattern[n] = (
+                        (~(triplet_ipt[n] <= mask_threshold)).view(-1).tolist()
+                    )
         return rank_pattern
 
     def update_and_allocate(self, model, global_step, force_mask=False):
@@ -353,6 +381,10 @@ class RankAllocator:
         with torch.no_grad():
             for n, p in model.named_parameters():
                 if f"lora_E.{self.adapter_name}" in n:
-                    key = n if not is_adapter_name_truncated else n.replace(f".{self.adapter_name}", "")
+                    key = (
+                        n
+                        if not is_adapter_name_truncated
+                        else n.replace(f".{self.adapter_name}", "")
+                    )
                     mask = torch.Tensor(rank_pattern[key]).unsqueeze(-1).to(p.device)
                     p.masked_fill_(~mask.bool(), 0.0)

@@ -21,7 +21,6 @@ from peft.import_utils import is_auto_awq_available
 from peft.tuners.lora.layer import LoraLayer
 from peft.tuners.tuners_utils import BaseTunerLayer
 
-
 if is_auto_awq_available():
     from awq.modules.linear import WQLinear_GEMM
 
@@ -46,7 +45,9 @@ class AwqLoraLinear(torch.nn.Module, LoraLayer):
         self.quant_linear_module = base_layer
 
         self._active_adapter = adapter_name
-        self.update_layer(adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora)
+        self.update_layer(
+            adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora
+        )
 
     def forward(self, x: torch.Tensor):
         result = self.quant_linear_module(x)

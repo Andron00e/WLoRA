@@ -107,11 +107,14 @@ class FourierFTConfig(PeftConfig):
         },
     )
     random_loc_seed: Optional[int] = field(
-        default=777, metadata={"help": "Seed for the random location of the frequencies."}
+        default=777,
+        metadata={"help": "Seed for the random location of the frequencies."},
     )
     fan_in_fan_out: bool = field(
         default=False,
-        metadata={"help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"},
+        metadata={
+            "help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"
+        },
     )
     target_modules: Optional[Union[list[str], str]] = field(
         default=None,
@@ -124,7 +127,10 @@ class FourierFTConfig(PeftConfig):
         },
     )
     bias: str = field(
-        default="none", metadata={"help": "Bias type for FourierFT. Can be 'none', 'all' or 'fourier_only'."}
+        default="none",
+        metadata={
+            "help": "Bias type for FourierFT. Can be 'none', 'all' or 'fourier_only'."
+        },
     )
     modules_to_save: Optional[list[str]] = field(
         default=None,
@@ -177,12 +183,21 @@ class FourierFTConfig(PeftConfig):
     def __post_init__(self):
         self.peft_type = PeftType.FOURIERFT
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )
         # if target_modules is a regex expression, then layers_to_transform should be None
-        if isinstance(self.target_modules, str) and self.layers_to_transform is not None:
-            raise ValueError("`layers_to_transform` cannot be used when `target_modules` is a str.")
+        if (
+            isinstance(self.target_modules, str)
+            and self.layers_to_transform is not None
+        ):
+            raise ValueError(
+                "`layers_to_transform` cannot be used when `target_modules` is a str."
+            )
 
         # if target_modules is a regex expression, then layers_pattern should be None
         if isinstance(self.target_modules, str) and self.layers_pattern is not None:
-            raise ValueError("`layers_pattern` cannot be used when `target_modules` is a str.")
+            raise ValueError(
+                "`layers_pattern` cannot be used when `target_modules` is a str."
+            )

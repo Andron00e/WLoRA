@@ -4,14 +4,10 @@ from enum import Enum
 import torch
 from datasets import DatasetDict, load_dataset, load_from_disk
 from datasets.builder import DatasetGenerationError
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-)
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BitsAndBytesConfig)
 
 from peft import LoraConfig
-
 
 DEFAULT_CHATML_CHAT_TEMPLATE = "{% for message in messages %}\n{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% if loop.last and add_generation_prompt %}{{'<|im_start|>assistant\n' }}{% endif %}{% endfor %}"
 DEFAULT_ZEPHYR_CHAT_TEMPLATE = "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
@@ -64,7 +60,9 @@ def create_datasets(tokenizer, data_args, training_args, apply_chat_template=Fal
         elif "test" in split:
             raw_datasets["test"] = dataset
         else:
-            raise ValueError(f"Split type {split} not recognized as one of test or train.")
+            raise ValueError(
+                f"Split type {split} not recognized as one of test or train."
+            )
 
     if apply_chat_template:
         raw_datasets = raw_datasets.map(
@@ -75,7 +73,9 @@ def create_datasets(tokenizer, data_args, training_args, apply_chat_template=Fal
 
     train_data = raw_datasets["train"]
     valid_data = raw_datasets["test"]
-    print(f"Size of the train set: {len(train_data)}. Size of the validation set: {len(valid_data)}")
+    print(
+        f"Size of the train set: {len(train_data)}. Size of the validation set: {len(valid_data)}"
+    )
     print(f"A sample of train dataset: {train_data[0]}")
 
     return train_data, valid_data
@@ -111,7 +111,9 @@ def create_and_prepare_model(args, data_args, training_args):
             major, _ = torch.cuda.get_device_capability()
             if major >= 8:
                 print("=" * 80)
-                print("Your GPU supports bfloat16, you can accelerate training with the argument --bf16")
+                print(
+                    "Your GPU supports bfloat16, you can accelerate training with the argument --bf16"
+                )
                 print("=" * 80)
         elif args.use_8bit_quantization:
             bnb_config = BitsAndBytesConfig(load_in_8bit=args.use_8bit_quantization)
@@ -126,7 +128,9 @@ def create_and_prepare_model(args, data_args, training_args):
         )
     else:
         torch_dtype = (
-            quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.float32
+            quant_storage_dtype
+            if quant_storage_dtype and quant_storage_dtype.is_floating_point
+            else torch.float32
         )
         model = AutoModelForCausalLM.from_pretrained(
             args.model_name_or_path,
@@ -145,9 +149,11 @@ def create_and_prepare_model(args, data_args, training_args):
             r=args.lora_r,
             bias="none",
             task_type="CAUSAL_LM",
-            target_modules=args.lora_target_modules.split(",")
-            if args.lora_target_modules != "all-linear"
-            else args.lora_target_modules,
+            target_modules=(
+                args.lora_target_modules.split(",")
+                if args.lora_target_modules != "all-linear"
+                else args.lora_target_modules
+            ),
         )
 
     special_tokens = None
@@ -172,7 +178,9 @@ def create_and_prepare_model(args, data_args, training_args):
         # make embedding resizing configurable?
         model.resize_token_embeddings(len(tokenizer), pad_to_multiple_of=8)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(
+            args.model_name_or_path, trust_remote_code=True
+        )
         tokenizer.pad_token = tokenizer.eos_token
 
     if args.use_unsloth:
@@ -182,9 +190,11 @@ def create_and_prepare_model(args, data_args, training_args):
             lora_alpha=args.lora_alpha,
             lora_dropout=args.lora_dropout,
             r=args.lora_r,
-            target_modules=args.lora_target_modules.split(",")
-            if args.lora_target_modules != "all-linear"
-            else args.lora_target_modules,
+            target_modules=(
+                args.lora_target_modules.split(",")
+                if args.lora_target_modules != "all-linear"
+                else args.lora_target_modules
+            ),
             use_gradient_checkpointing=training_args.gradient_checkpointing,
             random_state=training_args.seed,
             max_seq_length=data_args.max_seq_length,

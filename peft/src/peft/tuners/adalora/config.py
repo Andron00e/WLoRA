@@ -42,12 +42,20 @@ class AdaLoraConfig(LoraConfig):
     init_r: int = field(default=12, metadata={"help": "Initial Lora matrix dimension."})
     tinit: int = field(default=0, metadata={"help": "The steps of initial warmup."})
     tfinal: int = field(default=0, metadata={"help": "The steps of final warmup."})
-    deltaT: int = field(default=1, metadata={"help": "Step interval of rank allocation."})
+    deltaT: int = field(
+        default=1, metadata={"help": "Step interval of rank allocation."}
+    )
     beta1: float = field(default=0.85, metadata={"help": "Hyperparameter of EMA."})
     beta2: float = field(default=0.85, metadata={"help": "Hyperparameter of EMA."})
-    orth_reg_weight: float = field(default=0.5, metadata={"help": "The orthogonal regularization coefficient."})
-    total_step: Optional[int] = field(default=None, metadata={"help": "The total training steps."})
-    rank_pattern: Optional[dict] = field(default=None, metadata={"help": "The saved rank pattern."})
+    orth_reg_weight: float = field(
+        default=0.5, metadata={"help": "The orthogonal regularization coefficient."}
+    )
+    total_step: Optional[int] = field(
+        default=None, metadata={"help": "The total training steps."}
+    )
+    rank_pattern: Optional[dict] = field(
+        default=None, metadata={"help": "The saved rank pattern."}
+    )
 
     def __post_init__(self):
         self.peft_type = PeftType.ADALORA
@@ -59,15 +67,24 @@ class AdaLoraConfig(LoraConfig):
             raise ValueError(f"{self.peft_type} does not support LOFTQ.")
 
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )
         # if target_modules is a regex expression, then layers_to_transform should be None
-        if isinstance(self.target_modules, str) and self.layers_to_transform is not None:
-            raise ValueError("`layers_to_transform` cannot be used when `target_modules` is a str.")
+        if (
+            isinstance(self.target_modules, str)
+            and self.layers_to_transform is not None
+        ):
+            raise ValueError(
+                "`layers_to_transform` cannot be used when `target_modules` is a str."
+            )
 
         # if target_modules is a regex expression, then layers_pattern should be None
         if isinstance(self.target_modules, str) and self.layers_pattern is not None:
-            raise ValueError("`layers_pattern` cannot be used when `target_modules` is a str.")
+            raise ValueError(
+                "`layers_pattern` cannot be used when `target_modules` is a str."
+            )
 
         # Check if 'r' has been set to a non-default value
         if self.r != 8:  # 8 is the default value for 'r' in LoraConfig

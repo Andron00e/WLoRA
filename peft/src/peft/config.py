@@ -36,9 +36,14 @@ class PeftConfigMixin(PushToHubMixin):
         peft_type (Union[[`~peft.utils.config.PeftType`], `str`]): The type of Peft method to use.
     """
 
-    peft_type: Optional[PeftType] = field(default=None, metadata={"help": "The type of PEFT model."})
+    peft_type: Optional[PeftType] = field(
+        default=None, metadata={"help": "The type of PEFT model."}
+    )
     auto_mapping: Optional[dict] = field(
-        default=None, metadata={"help": "An auto mapping dict to help retrieve the base model class if needed."}
+        default=None,
+        metadata={
+            "help": "An auto mapping dict to help retrieve the base model class if needed."
+        },
     )
 
     def to_dict(self) -> Dict:
@@ -59,7 +64,9 @@ class PeftConfigMixin(PushToHubMixin):
                 method.
         """
         if os.path.isfile(save_directory):
-            raise AssertionError(f"Provided path ({save_directory}) should be a directory, not a file")
+            raise AssertionError(
+                f"Provided path ({save_directory}) should be a directory, not a file"
+            )
 
         os.makedirs(save_directory, exist_ok=True)
         auto_mapping_dict = kwargs.pop("auto_mapping_dict", None)
@@ -119,7 +126,12 @@ class PeftConfigMixin(PushToHubMixin):
         return config_cls(**kwargs)
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: str, subfolder: Optional[str] = None, **kwargs):
+    def from_pretrained(
+        cls,
+        pretrained_model_name_or_path: str,
+        subfolder: Optional[str] = None,
+        **kwargs,
+    ):
         r"""
         This method loads the configuration of your adapter model from a directory.
 
@@ -142,10 +154,15 @@ class PeftConfigMixin(PushToHubMixin):
         else:
             try:
                 config_file = hf_hub_download(
-                    pretrained_model_name_or_path, CONFIG_NAME, subfolder=subfolder, **hf_hub_download_kwargs
+                    pretrained_model_name_or_path,
+                    CONFIG_NAME,
+                    subfolder=subfolder,
+                    **hf_hub_download_kwargs,
                 )
             except Exception as exc:
-                raise ValueError(f"Can't find '{CONFIG_NAME}' at '{pretrained_model_name_or_path}'") from exc
+                raise ValueError(
+                    f"Can't find '{CONFIG_NAME}' at '{pretrained_model_name_or_path}'"
+                ) from exc
 
         loaded_attributes = cls.from_json_file(config_file)
         kwargs = {**class_kwargs, **loaded_attributes}
@@ -240,10 +257,18 @@ class PeftConfig(PeftConfigMixin):
     base_model_name_or_path: Optional[str] = field(
         default=None, metadata={"help": "The name of the base model to use."}
     )
-    revision: Optional[str] = field(default=None, metadata={"help": "The specific base model version to use."})
-    peft_type: Optional[Union[str, PeftType]] = field(default=None, metadata={"help": "Peft type"})
-    task_type: Optional[Union[str, TaskType]] = field(default=None, metadata={"help": "Task type"})
-    inference_mode: bool = field(default=False, metadata={"help": "Whether to use inference mode"})
+    revision: Optional[str] = field(
+        default=None, metadata={"help": "The specific base model version to use."}
+    )
+    peft_type: Optional[Union[str, PeftType]] = field(
+        default=None, metadata={"help": "Peft type"}
+    )
+    task_type: Optional[Union[str, TaskType]] = field(
+        default=None, metadata={"help": "Task type"}
+    )
+    inference_mode: bool = field(
+        default=False, metadata={"help": "Whether to use inference mode"}
+    )
 
 
 @dataclass
@@ -260,15 +285,24 @@ class PromptLearningConfig(PeftConfig):
         num_layers (`int`): The number of layers in the base transformer model.
     """
 
-    num_virtual_tokens: int = field(default=None, metadata={"help": "Number of virtual tokens"})
+    num_virtual_tokens: int = field(
+        default=None, metadata={"help": "Number of virtual tokens"}
+    )
     token_dim: int = field(
-        default=None, metadata={"help": "The hidden embedding dimension of the base transformer model"}
+        default=None,
+        metadata={
+            "help": "The hidden embedding dimension of the base transformer model"
+        },
     )
     num_transformer_submodules: Optional[int] = field(
         default=None, metadata={"help": "Number of transformer submodules"}
     )
-    num_attention_heads: Optional[int] = field(default=None, metadata={"help": "Number of attention heads"})
-    num_layers: Optional[int] = field(default=None, metadata={"help": "Number of transformer layers"})
+    num_attention_heads: Optional[int] = field(
+        default=None, metadata={"help": "Number of attention heads"}
+    )
+    num_layers: Optional[int] = field(
+        default=None, metadata={"help": "Number of transformer layers"}
+    )
 
     @property
     def is_prompt_learning(self) -> bool:

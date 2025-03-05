@@ -14,10 +14,10 @@
 import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
-from transformers import AutoModelForVision2Seq, AutoProcessor, BitsAndBytesConfig
+from transformers import (AutoModelForVision2Seq, AutoProcessor,
+                          BitsAndBytesConfig)
 
 from peft import LoraConfig, get_peft_model
-
 
 # Let's define the LoraConfig
 config = LoraConfig(
@@ -29,7 +29,8 @@ config = LoraConfig(
 
 # We load our model and processor using `transformers`
 model = AutoModelForVision2Seq.from_pretrained(
-    "Salesforce/blip2-opt-2.7b", quantization_config=BitsAndBytesConfig(load_in_8bit=True)
+    "Salesforce/blip2-opt-2.7b",
+    quantization_config=BitsAndBytesConfig(load_in_8bit=True),
 )
 processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
 
@@ -51,7 +52,9 @@ class ImageCaptioningDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.dataset[idx]
-        encoding = self.processor(images=item["image"], padding="max_length", return_tensors="pt")
+        encoding = self.processor(
+            images=item["image"], padding="max_length", return_tensors="pt"
+        )
         # remove batch dimension
         encoding = {k: v.squeeze() for k, v in encoding.items()}
         encoding["text"] = item["text"]
@@ -66,7 +69,9 @@ def collator(batch):
             processed_batch[key] = torch.stack([example[key] for example in batch])
         else:
             text_inputs = processor.tokenizer(
-                [example["text"] for example in batch], padding=True, return_tensors="pt"
+                [example["text"] for example in batch],
+                padding=True,
+                return_tensors="pt",
             )
             processed_batch["input_ids"] = text_inputs["input_ids"]
             processed_batch["attention_mask"] = text_inputs["attention_mask"]
@@ -74,7 +79,9 @@ def collator(batch):
 
 
 train_dataset = ImageCaptioningDataset(dataset, processor)
-train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=2, collate_fn=collator)
+train_dataloader = DataLoader(
+    train_dataset, shuffle=True, batch_size=2, collate_fn=collator
+)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5)
 
@@ -88,7 +95,9 @@ for epoch in range(50):
         input_ids = batch.pop("input_ids").to(device)
         pixel_values = batch.pop("pixel_values").to(device, torch.float16)
 
-        outputs = model(input_ids=input_ids, pixel_values=pixel_values, labels=input_ids)
+        outputs = model(
+            input_ids=input_ids, pixel_values=pixel_values, labels=input_ids
+        )
 
         loss = outputs.loss
 

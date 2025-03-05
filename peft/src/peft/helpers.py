@@ -50,7 +50,9 @@ def update_forward_signature(model: PeftModel) -> None:
     ):
         forward = deepcopy(model.forward.__func__)
         update_wrapper(
-            forward, type(model.get_base_model()).forward, assigned=("__doc__", "__name__", "__annotations__")
+            forward,
+            type(model.get_base_model()).forward,
+            assigned=("__doc__", "__name__", "__annotations__"),
         )
         model.forward = MethodType(forward, model)
 
@@ -85,7 +87,10 @@ def update_generate_signature(model: PeftModel) -> None:
         len(current_signature.parameters) == 2
         and "args" in current_signature.parameters
         and "kwargs" in current_signature.parameters
-    ) or (len(current_signature.parameters) == 1 and "kwargs" in current_signature.parameters):
+    ) or (
+        len(current_signature.parameters) == 1
+        and "kwargs" in current_signature.parameters
+    ):
         generate = deepcopy(model.generate.__func__)
         update_wrapper(
             generate,
@@ -126,7 +131,9 @@ def update_signature(model: PeftModel, method: str = "all") -> None:
         update_forward_signature(model)
         update_generate_signature(model)
     else:
-        raise ValueError(f"method {method} is not supported please choose one of ['forward', 'generate', 'all']")
+        raise ValueError(
+            f"method {method} is not supported please choose one of ['forward', 'generate', 'all']"
+        )
 
 
 def check_if_peft_model(model_name_or_path: str) -> bool:
@@ -186,7 +193,9 @@ def rescale_adapter_scale(model, multiplier):
     """
     # check if multiplier has a valid data type
     if not isinstance(multiplier, (float, int)):
-        raise TypeError(f"Argument multiplier should be of type float, got {type(multiplier)}")
+        raise TypeError(
+            f"Argument multiplier should be of type float, got {type(multiplier)}"
+        )
 
     # iterate on the model's modules and grab the original scaling attribute
     # from the lora layers if present

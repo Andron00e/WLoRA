@@ -53,7 +53,9 @@ class MultitaskPromptTuningConfig(PromptTuningConfig):
             ),
         },
     )
-    prompt_tuning_init_task: Optional[int] = field(default=0, metadata={"help": "source task id for initialization"})
+    prompt_tuning_init_task: Optional[int] = field(
+        default=0, metadata={"help": "source task id for initialization"}
+    )
     num_ranks: Optional[int] = field(default=1, metadata={"help": "ranks"})
     num_tasks: Optional[int] = field(default=1, metadata={"help": "number of tasks"})
 

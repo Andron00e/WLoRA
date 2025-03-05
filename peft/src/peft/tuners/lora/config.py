@@ -66,7 +66,9 @@ class LoftQConfig:
     """
 
     loftq_bits: int = field(default=4, metadata={"help": "Quantization bits for LoftQ"})
-    loftq_iter: int = field(default=1, metadata={"help": "Alternating iterations for LoftQ"})
+    loftq_iter: int = field(
+        default=1, metadata={"help": "Alternating iterations for LoftQ"}
+    )
 
 
 @dataclass
@@ -170,10 +172,13 @@ class LoraConfig(PeftConfig):
     lora_dropout: float = field(default=0.0, metadata={"help": "Lora dropout"})
     fan_in_fan_out: bool = field(
         default=False,
-        metadata={"help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"},
+        metadata={
+            "help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"
+        },
     )
     bias: Literal["none", "all", "lora_only"] = field(
-        default="none", metadata={"help": "Bias type for Lora. Can be 'none', 'all' or 'lora_only'"}
+        default="none",
+        metadata={"help": "Bias type for Lora. Can be 'none', 'all' or 'lora_only'"},
     )
     use_rslora: bool = field(
         default=False,
@@ -194,7 +199,12 @@ class LoraConfig(PeftConfig):
             "the final layer `classifier/score` are randomly initialized and as such need to be trainable and saved."
         },
     )
-    init_lora_weights: bool | Literal["gaussian", "olora", "pissa", "pissa_niter_[number of iters]", "loftq"] = field(
+    init_lora_weights: (
+        bool
+        | Literal[
+            "gaussian", "olora", "pissa", "pissa_niter_[number of iters]", "loftq"
+        ]
+    ) = field(
         default=True,
         metadata={
             "help": (
@@ -325,27 +335,42 @@ class LoraConfig(PeftConfig):
     def __post_init__(self):
         self.peft_type = PeftType.LORA
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )
         # if target_modules is a regex expression, then layers_to_transform should be None
-        if isinstance(self.target_modules, str) and self.layers_to_transform is not None:
-            raise ValueError("`layers_to_transform` cannot be used when `target_modules` is a str.")
+        if (
+            isinstance(self.target_modules, str)
+            and self.layers_to_transform is not None
+        ):
+            raise ValueError(
+                "`layers_to_transform` cannot be used when `target_modules` is a str."
+            )
 
         # if target_modules is a regex expression, then layers_pattern should be None
         if isinstance(self.target_modules, str) and self.layers_pattern is not None:
-            raise ValueError("`layers_pattern` cannot be used when `target_modules` is a str.")
+            raise ValueError(
+                "`layers_pattern` cannot be used when `target_modules` is a str."
+            )
 
         if self.use_dora and self.megatron_config:
-            raise ValueError("DoRA does not support megatron_core, please set `use_dora=False`.")
+            raise ValueError(
+                "DoRA does not support megatron_core, please set `use_dora=False`."
+            )
 
         # handle init_lora_weights and loftq_config
         if self.init_lora_weights == "loftq":
             import importlib
 
             if not importlib.util.find_spec("scipy"):
-                raise ImportError("The required package 'scipy' is not installed. Please install it to continue.")
+                raise ImportError(
+                    "The required package 'scipy' is not installed. Please install it to continue."
+                )
             if self.loftq_config is None:
-                raise ValueError("`loftq_config` must be specified when `init_lora_weights` is 'loftq'.")
+                raise ValueError(
+                    "`loftq_config` must be specified when `init_lora_weights` is 'loftq'."
+                )
 
         # Using post training conversion of modified base weights to restore their initial values (PiSSA, OLoRA) cannot
         # be correctly done when using rslora + rank_pattern/alpha_pattern. We can't really know if the user intends
@@ -355,7 +380,10 @@ class LoraConfig(PeftConfig):
             self.use_rslora
             and (self.rank_pattern or self.alpha_pattern)
             and (
-                (isinstance(self.init_lora_weights, str) and (self.init_lora_weights.startswith("pissa")))
+                (
+                    isinstance(self.init_lora_weights, str)
+                    and (self.init_lora_weights.startswith("pissa"))
+                )
                 or (self.init_lora_weights == "olora")
             )
         ):
@@ -373,7 +401,9 @@ class LoraConfig(PeftConfig):
 
         self._custom_modules: Optional[dict[type[nn.Mmodule], type[nn.Module]]] = None
 
-    def _register_custom_module(self, mapping: dict[type[nn.Mmodule], type[nn.Module]]) -> None:
+    def _register_custom_module(
+        self, mapping: dict[type[nn.Mmodule], type[nn.Module]]
+    ) -> None:
         """
         Experimental API to support providing custom LoRA layers.
 

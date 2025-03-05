@@ -27,18 +27,10 @@ from peft.utils.constants import DUMMY_MODEL_CONFIG
 
 from .config import PeftConfig
 from .peft_model import PeftModel
-from .tuners import (
-    AdaLoraModel,
-    IA3Model,
-    LoHaModel,
-    LoKrModel,
-    LoraModel,
-    MixedModel,
-    OFTModel,
-)
+from .tuners import (AdaLoraModel, IA3Model, LoHaModel, LoKrModel, LoraModel,
+                     MixedModel, OFTModel)
 from .tuners.mixed import COMPATIBLE_TUNER_TYPES
 from .utils import PeftType, _set_adapter, _set_trainable
-
 
 PEFT_TYPE_TO_MODEL_MAPPING = {
     PeftType.LORA: LoraModel,
@@ -114,7 +106,9 @@ class PeftMixedModel(PushToHubMixin, torch.nn.Module):
             The name of the first adapter.
     """
 
-    def __init__(self, model: nn.Module, peft_config: PeftConfig, adapter_name: str = "default") -> None:
+    def __init__(
+        self, model: nn.Module, peft_config: PeftConfig, adapter_name: str = "default"
+    ) -> None:
         super().__init__()
         _check_config_compatible(peft_config)
         _prepare_model_for_gradient_checkpointing(model)
@@ -127,7 +121,9 @@ class PeftMixedModel(PushToHubMixin, torch.nn.Module):
         # the `pretraining_tp` is set for some models to simulate Tensor Parallelism during inference to avoid
         # numerical differences, https://github.com/pytorch/pytorch/issues/76232 - to avoid any unexpected
         # behavior we disable that in this line.
-        if hasattr(self.base_model, "config") and hasattr(self.base_model.config, "pretraining_tp"):
+        if hasattr(self.base_model, "config") and hasattr(
+            self.base_model.config, "pretraining_tp"
+        ):
             self.base_model.config.pretraining_tp = 1
 
     @property
@@ -192,7 +188,9 @@ class PeftMixedModel(PushToHubMixin, torch.nn.Module):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "base_model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "base_model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.base_model, name)
 
@@ -313,10 +311,14 @@ class PeftMixedModel(PushToHubMixin, torch.nn.Module):
         return self.base_model.unload(*args, **kwargs)
 
     def get_layer_status(self):
-        raise TypeError(f"get_layer_status is not supported for {self.__class__.__name__}.")
+        raise TypeError(
+            f"get_layer_status is not supported for {self.__class__.__name__}."
+        )
 
     def get_model_status(self):
-        raise TypeError(f"get_model_status is not supported for {self.__class__.__name__}.")
+        raise TypeError(
+            f"get_model_status is not supported for {self.__class__.__name__}."
+        )
 
     @classmethod
     def _split_kwargs(cls, kwargs: dict[str, Any]):
@@ -329,7 +331,9 @@ class PeftMixedModel(PushToHubMixin, torch.nn.Module):
         return output
 
     def create_or_update_model_card(self, output_dir: str):
-        raise NotImplementedError(f"Model card creation is not supported for {self.__class__.__name__} (yet).")
+        raise NotImplementedError(
+            f"Model card creation is not supported for {self.__class__.__name__} (yet)."
+        )
 
     def save_pretrained(
         self,
@@ -338,7 +342,9 @@ class PeftMixedModel(PushToHubMixin, torch.nn.Module):
         selected_adapters: Optional[list[str]] = None,
         **kwargs: Any,
     ):
-        raise NotImplementedError(f"Saving is not supported for {self.__class__.__name__} (yet).")
+        raise NotImplementedError(
+            f"Saving is not supported for {self.__class__.__name__} (yet)."
+        )
 
     @classmethod
     def from_pretrained(
@@ -393,11 +399,15 @@ class PeftMixedModel(PushToHubMixin, torch.nn.Module):
         elif isinstance(config, PeftConfig):
             config.inference_mode = not is_trainable
         else:
-            raise ValueError(f"The input config must be a PeftConfig, got {config.__class__}")
+            raise ValueError(
+                f"The input config must be a PeftConfig, got {config.__class__}"
+            )
 
         # note: this is different from PeftModel.from_pretrained
         if config.peft_type not in PEFT_TYPE_TO_MODEL_MAPPING:
-            raise ValueError(f"Adapter of type {config.peft_type} is not supported for mixed models.")
+            raise ValueError(
+                f"Adapter of type {config.peft_type} is not supported for mixed models."
+            )
 
         if (getattr(model, "hf_device_map", None) is not None) and len(
             set(model.hf_device_map.values()).intersection({"cpu", "disk"})
@@ -406,7 +416,9 @@ class PeftMixedModel(PushToHubMixin, torch.nn.Module):
 
         if config.is_prompt_learning and is_trainable:
             # note: should not be possible to reach, but just in case
-            raise ValueError("Cannot set a prompt learning adapter to trainable when loading pretrained adapter.")
+            raise ValueError(
+                "Cannot set a prompt learning adapter to trainable when loading pretrained adapter."
+            )
         else:
             config.inference_mode = not is_trainable
 

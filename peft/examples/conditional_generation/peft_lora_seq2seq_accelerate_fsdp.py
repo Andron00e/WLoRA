@@ -5,7 +5,9 @@ from accelerate import Accelerator
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, default_data_collator, get_linear_schedule_with_warmup
+from transformers import (AutoModelForSeq2SeqLM, AutoTokenizer,
+                          default_data_collator,
+                          get_linear_schedule_with_warmup)
 
 from peft import LoraConfig, TaskType, get_peft_model
 from peft.utils.other import fsdp_auto_wrap_policy
@@ -23,7 +25,11 @@ def main():
     base_path = "temp/data/FinancialPhraseBank-v1.0"
 
     peft_config = LoraConfig(
-        task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+        task_type=TaskType.SEQ_2_SEQ_LM,
+        inference_mode=False,
+        r=8,
+        lora_alpha=32,
+        lora_dropout=0.1,
     )
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name_or_path)
     model = get_peft_model(model, peft_config)
@@ -43,9 +49,19 @@ def main():
         inputs = examples[text_column]
         targets = examples[label_column]
         model_inputs = tokenizer(
-            inputs, max_length=max_length, padding="max_length", truncation=True, return_tensors="pt"
+            inputs,
+            max_length=max_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
         )
-        labels = tokenizer(targets, max_length=2, padding="max_length", truncation=True, return_tensors="pt")
+        labels = tokenizer(
+            targets,
+            max_length=2,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
         labels = labels["input_ids"]
         labels[labels == tokenizer.pad_token_id] = -100
         model_inputs["labels"] = labels
@@ -65,10 +81,17 @@ def main():
     eval_dataset = processed_datasets["validation"]
 
     train_dataloader = DataLoader(
-        train_dataset, shuffle=True, collate_fn=default_data_collator, batch_size=batch_size, pin_memory=True
+        train_dataset,
+        shuffle=True,
+        collate_fn=default_data_collator,
+        batch_size=batch_size,
+        pin_memory=True,
     )
     eval_dataloader = DataLoader(
-        eval_dataset, collate_fn=default_data_collator, batch_size=batch_size, pin_memory=True
+        eval_dataset,
+        collate_fn=default_data_collator,
+        batch_size=batch_size,
+        pin_memory=True,
     )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
@@ -81,8 +104,10 @@ def main():
     if getattr(accelerator.state, "fsdp_plugin", None) is not None:
         accelerator.state.fsdp_plugin.auto_wrap_policy = fsdp_auto_wrap_policy(model)
 
-    model, train_dataloader, eval_dataloader, optimizer, lr_scheduler = accelerator.prepare(
-        model, train_dataloader, eval_dataloader, optimizer, lr_scheduler
+    model, train_dataloader, eval_dataloader, optimizer, lr_scheduler = (
+        accelerator.prepare(
+            model, train_dataloader, eval_dataloader, optimizer, lr_scheduler
+        )
     )
     accelerator.print(model)
 
@@ -106,13 +131,20 @@ def main():
                 outputs = model(**batch)
             loss = outputs.loss
             eval_loss += loss.detach().float()
-            preds = accelerator.gather_for_metrics(torch.argmax(outputs.logits, -1)).detach().cpu().numpy()
+            preds = (
+                accelerator.gather_for_metrics(torch.argmax(outputs.logits, -1))
+                .detach()
+                .cpu()
+                .numpy()
+            )
             eval_preds.extend(tokenizer.batch_decode(preds, skip_special_tokens=True))
         eval_epoch_loss = eval_loss / len(eval_dataloader)
         eval_ppl = torch.exp(eval_epoch_loss)
         train_epoch_loss = total_loss / len(train_dataloader)
         train_ppl = torch.exp(train_epoch_loss)
-        accelerator.print(f"{epoch=}: {train_ppl=} {train_epoch_loss=} {eval_ppl=} {eval_epoch_loss=}")
+        accelerator.print(
+            f"{epoch=}: {train_ppl=} {train_epoch_loss=} {eval_ppl=} {eval_epoch_loss=}"
+        )
 
         correct = 0
         total = 0
@@ -136,7 +168,9 @@ def main():
         #     is not specified.
         #     Or you can get your token from https://huggingface.co/settings/token
         # Option2: Saving the model locally
-        peft_model_id = f"{model_name_or_path}_{peft_config.peft_type}_{peft_config.task_type}".replace("/", "_")
+        peft_model_id = f"{model_name_or_path}_{peft_config.peft_type}_{peft_config.task_type}".replace(
+            "/", "_"
+        )
         model.save_pretrained(peft_model_id)
         accelerator.wait_for_everyone()
 

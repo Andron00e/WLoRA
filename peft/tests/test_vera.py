@@ -97,7 +97,9 @@ class TestVera:
         config = VeraConfig(target_modules=["lin1", "lin2"], init_weights=False)
         # creates a default VeRA adapter
         peft_model = get_peft_model(model, config)
-        config2 = VeraConfig(target_modules=["lin1", "lin2"], init_weights=False, projection_prng_key=123)
+        config2 = VeraConfig(
+            target_modules=["lin1", "lin2"], init_weights=False, projection_prng_key=123
+        )
 
         msg = (
             r"Vera PRNG initialisation key must be the same for all adapters. Got config.projection_prng_key=123 but "
@@ -106,7 +108,9 @@ class TestVera:
         with pytest.raises(ValueError, match=msg):
             peft_model.add_adapter("other", config2)
 
-    def test_multiple_adapters_save_load_save_projection_true(self, mlp_same_prng, tmp_path):
+    def test_multiple_adapters_save_load_save_projection_true(
+        self, mlp_same_prng, tmp_path
+    ):
         # check saving and loading works with multiple adapters and saved projection weights
         torch.manual_seed(0)
         input = torch.randn(5, 10)
@@ -133,16 +137,22 @@ class TestVera:
         peft_model.set_adapter("other")
         output_other_loaded = peft_model(input)
 
-        assert torch.allclose(output_default, output_default_loaded, atol=1e-3, rtol=1e-3)
+        assert torch.allclose(
+            output_default, output_default_loaded, atol=1e-3, rtol=1e-3
+        )
         assert torch.allclose(output_other, output_other_loaded, atol=1e-3, rtol=1e-3)
 
     def test_multiple_adapters_save_load_save_projection_false(self, mlp, tmp_path):
         # check saving and loading works with multiple adapters without saved projection weights
         torch.manual_seed(1)
-        config = VeraConfig(target_modules=["lin1", "lin2"], init_weights=False, save_projection=False)
+        config = VeraConfig(
+            target_modules=["lin1", "lin2"], init_weights=False, save_projection=False
+        )
         # creates a default VeRA adapter
         peft_model = get_peft_model(mlp, config, adapter_name="first")
-        config2 = VeraConfig(target_modules=["lin1", "lin2"], init_weights=False, save_projection=False)
+        config2 = VeraConfig(
+            target_modules=["lin1", "lin2"], init_weights=False, save_projection=False
+        )
         peft_model.add_adapter("second", config2)
 
         input = torch.randn(5, 10)
@@ -161,7 +171,9 @@ class TestVera:
 
         torch.manual_seed(0)
         mlp = MLP()
-        peft_model = PeftModel.from_pretrained(mlp, save_path / "first", adapter_name="first")
+        peft_model = PeftModel.from_pretrained(
+            mlp, save_path / "first", adapter_name="first"
+        )
         peft_model.load_adapter(save_path / "second", "second")
 
         peft_model.set_adapter("first")
@@ -172,13 +184,17 @@ class TestVera:
         assert torch.allclose(output_first, output_first_loaded, atol=1e-3, rtol=1e-3)
         assert torch.allclose(output_second, output_second_loaded, atol=1e-3, rtol=1e-3)
 
-    def test_multiple_adapters_save_projection_true_contains_vera_A_vera_B(self, mlp_same_prng, tmp_path):
+    def test_multiple_adapters_save_projection_true_contains_vera_A_vera_B(
+        self, mlp_same_prng, tmp_path
+    ):
         # check that the state_dicts don't contain the projection weights
         save_path = tmp_path / "vera"
         mlp_same_prng.save_pretrained(save_path)
 
         sd_default = {}
-        with safe_open(save_path / "adapter_model.safetensors", framework="pt", device="cpu") as f:
+        with safe_open(
+            save_path / "adapter_model.safetensors", framework="pt", device="cpu"
+        ) as f:
             for key in f.keys():
                 sd_default[key] = f.get_tensor(key)
 
@@ -189,7 +205,11 @@ class TestVera:
         assert sd_default["base_model.vera_B"].shape == (20, 256)
 
         sd_other = {}
-        with safe_open(save_path / "other" / "adapter_model.safetensors", framework="pt", device="cpu") as f:
+        with safe_open(
+            save_path / "other" / "adapter_model.safetensors",
+            framework="pt",
+            device="cpu",
+        ) as f:
             for key in f.keys():
                 sd_other[key] = f.get_tensor(key)
 
@@ -198,19 +218,29 @@ class TestVera:
         assert sd_other["base_model.vera_A"].shape == (256, 20)
         assert sd_other["base_model.vera_B"].shape == (20, 256)
 
-    def test_multiple_adapters_save_projection_false_contains_no_vera_A_vera_B(self, mlp, tmp_path):
+    def test_multiple_adapters_save_projection_false_contains_no_vera_A_vera_B(
+        self, mlp, tmp_path
+    ):
         torch.manual_seed(1)
-        config = VeraConfig(target_modules=["lin1", "lin2"], init_weights=False, save_projection=False)
+        config = VeraConfig(
+            target_modules=["lin1", "lin2"], init_weights=False, save_projection=False
+        )
         # creates a default VeRA adapter
         peft_model = get_peft_model(mlp, config, adapter_name="first")
-        config2 = VeraConfig(target_modules=["lin1", "lin2"], init_weights=False, save_projection=False)
+        config2 = VeraConfig(
+            target_modules=["lin1", "lin2"], init_weights=False, save_projection=False
+        )
         peft_model.add_adapter("second", config2)
 
         save_path = tmp_path / "vera"
         peft_model.save_pretrained(save_path)
 
         sd_default = {}
-        with safe_open(save_path / "first" / "adapter_model.safetensors", framework="pt", device="cpu") as f:
+        with safe_open(
+            save_path / "first" / "adapter_model.safetensors",
+            framework="pt",
+            device="cpu",
+        ) as f:
             for key in f.keys():
                 sd_default[key] = f.get_tensor(key)
 
@@ -218,7 +248,11 @@ class TestVera:
         assert not any("vera_B" in key for key in sd_default)
 
         sd_other = {}
-        with safe_open(save_path / "second" / "adapter_model.safetensors", framework="pt", device="cpu") as f:
+        with safe_open(
+            save_path / "second" / "adapter_model.safetensors",
+            framework="pt",
+            device="cpu",
+        ) as f:
             for key in f.keys():
                 sd_other[key] = f.get_tensor(key)
 
@@ -230,10 +264,22 @@ class TestVera:
         vera_B = mlp_same_prng.vera_B["default"]
 
         # these tensors should share the same data
-        assert vera_A.data_ptr() == mlp_same_prng.base_model.model.lin1.vera_A["default"].data_ptr()
-        assert vera_B.data_ptr() == mlp_same_prng.base_model.model.lin1.vera_B["default"].data_ptr()
-        assert vera_A.data_ptr() == mlp_same_prng.base_model.model.lin2.vera_A["default"].data_ptr()
-        assert vera_B.data_ptr() == mlp_same_prng.base_model.model.lin2.vera_B["default"].data_ptr()
+        assert (
+            vera_A.data_ptr()
+            == mlp_same_prng.base_model.model.lin1.vera_A["default"].data_ptr()
+        )
+        assert (
+            vera_B.data_ptr()
+            == mlp_same_prng.base_model.model.lin1.vera_B["default"].data_ptr()
+        )
+        assert (
+            vera_A.data_ptr()
+            == mlp_same_prng.base_model.model.lin2.vera_A["default"].data_ptr()
+        )
+        assert (
+            vera_B.data_ptr()
+            == mlp_same_prng.base_model.model.lin2.vera_B["default"].data_ptr()
+        )
         # sanity check: these tensors shouldn't share the same data
         assert vera_A.data_ptr() != vera_B.data_ptr()
 

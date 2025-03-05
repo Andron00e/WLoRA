@@ -46,13 +46,23 @@ class AdaptedAttention(nn.Module):
         # https://github.com/ZrrSkywalker/LLaMA-Adapter/blob/41c3546fe1997ab8a65809dc8d8f9252b19d9faf/llama/model.py#L234
         # (bsz, adapter_len, hidden_size)
         target_dtype = (
-            model.q_proj.weight.dtype if model.q_proj.weight.dtype not in [torch.int8, torch.uint8] else torch.float32
+            model.q_proj.weight.dtype
+            if model.q_proj.weight.dtype not in [torch.int8, torch.uint8]
+            else torch.float32
         )
         self.adaption_prompt = nn.Parameter(
-            torch.empty(1, adapter_len, self.model.hidden_size, device=device, dtype=target_dtype).normal_()
+            torch.empty(
+                1,
+                adapter_len,
+                self.model.hidden_size,
+                device=device,
+                dtype=target_dtype,
+            ).normal_()
         )
         # Initialize the gate to 0 as this is "zero-init".
-        self.adaption_gate = nn.Parameter(torch.zeros(1, device=device, dtype=target_dtype))
+        self.adaption_gate = nn.Parameter(
+            torch.zeros(1, device=device, dtype=target_dtype)
+        )
 
     def forward(self, **kwargs):
         """
@@ -79,19 +89,31 @@ class AdaptedAttention(nn.Module):
         )  # Mistral has different input and output dimension for k_proj and v_proj layers
 
         if k_proj_layer == v_proj_layer:
-            _, key, value = getattr(self.model, k_proj_layer)(self.adaption_prompt).split(embed_dim, dim=2)
+            _, key, value = getattr(self.model, k_proj_layer)(
+                self.adaption_prompt
+            ).split(embed_dim, dim=2)
         else:
             key = getattr(self.model, k_proj_layer)(self.adaption_prompt)
             value = getattr(self.model, v_proj_layer)(self.adaption_prompt)
 
         # (bsz, num_key_value_heads, adapter_len, head_dim)
         adapter_k = (
-            key.view(1, self.adapter_len, (self.model.num_heads // factor), self.model.head_dim)
+            key.view(
+                1,
+                self.adapter_len,
+                (self.model.num_heads // factor),
+                self.model.head_dim,
+            )
             .repeat(bsz, 1, 1, 1)
             .transpose(1, 2)
         )
         adapter_v = (
-            value.view(1, self.adapter_len, (self.model.num_heads // factor), self.model.head_dim)
+            value.view(
+                1,
+                self.adapter_len,
+                (self.model.num_heads // factor),
+                self.model.head_dim,
+            )
             .repeat(bsz, 1, 1, 1)
             .transpose(1, 2)
         )
@@ -100,21 +122,27 @@ class AdaptedAttention(nn.Module):
         adapter_k = torch.repeat_interleave(adapter_k, repeats=factor, dim=1)
         adapter_v = torch.repeat_interleave(adapter_v, repeats=factor, dim=1)
         # Recompute query states.
-        compute_query_states = TRANSFORMERS_MODEL_CONFIG[self.model_type].compute_query_states
+        compute_query_states = TRANSFORMERS_MODEL_CONFIG[
+            self.model_type
+        ].compute_query_states
         # (bsz, num_heads, q_len, head_dim)
         query_states = compute_query_states(model=self.model, **kwargs)
 
         previous_dtype = query_states.dtype
 
         # (bsz, num_heads, q_len, adapter_len)
-        scores = torch.matmul(query_states, adapter_k.transpose(2, 3).to(previous_dtype)) / math.sqrt(
-            self.model.head_dim
-        )
+        scores = torch.matmul(
+            query_states, adapter_k.transpose(2, 3).to(previous_dtype)
+        ) / math.sqrt(self.model.head_dim)
         # Upcast attention to fp32
         # (bsz, num_heads, q_len, adapter_len)
-        scores = self.adaption_gate * F.softmax(scores, dim=-1, dtype=torch.float32).to(previous_dtype)
+        scores = self.adaption_gate * F.softmax(scores, dim=-1, dtype=torch.float32).to(
+            previous_dtype
+        )
         # (bsz, q_len, num_heads * head_dim)
-        adapter_output = torch.matmul(scores, adapter_v).transpose(1, 2).reshape(bsz, q_len, -1)
+        adapter_output = (
+            torch.matmul(scores, adapter_v).transpose(1, 2).reshape(bsz, q_len, -1)
+        )
 
         # (bsz, q_len, hidden_size)
         if o_proj_layer is not None:

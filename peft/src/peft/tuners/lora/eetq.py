@@ -19,7 +19,6 @@ from peft.import_utils import is_eetq_available
 from peft.tuners.lora.layer import LoraLayer
 from peft.tuners.tuners_utils import BaseTunerLayer
 
-
 if is_eetq_available():
     from eetq import EetqLinear
 
@@ -43,7 +42,9 @@ if is_eetq_available():
             self.quant_linear_module = base_layer
 
             self._active_adapter = adapter_name
-            self.update_layer(adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora)
+            self.update_layer(
+                adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora
+            )
 
         def forward(self, x: torch.Tensor):
             result = self.quant_linear_module(x)
@@ -71,11 +72,17 @@ if is_eetq_available():
                 result = result + output
             return result
 
-        def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
-            raise AttributeError("Merging LoRA layers is not supported for Eetq layers.")
+        def merge(
+            self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+        ) -> None:
+            raise AttributeError(
+                "Merging LoRA layers is not supported for Eetq layers."
+            )
 
         def unmerge(self) -> None:
-            raise AttributeError("Unmerging LoRA layers is not supported for Eetq layers.")
+            raise AttributeError(
+                "Unmerging LoRA layers is not supported for Eetq layers."
+            )
 
         def __repr__(self) -> str:
             rep = super().__repr__()

@@ -16,5 +16,4 @@ from .config import VBLoRAConfig
 from .layer import Linear, VBLoRALayer
 from .model import VBLoRAModel
 
-
 __all__ = ["VBLoRAConfig", "VBLoRALayer", "Linear", "VBLoRAModel"]

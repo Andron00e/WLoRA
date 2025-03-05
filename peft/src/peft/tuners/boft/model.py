@@ -24,17 +24,10 @@ import torch
 from torch import nn
 from tqdm import tqdm
 
-from peft.tuners.tuners_utils import (
-    BaseTuner,
-    BaseTunerLayer,
-    check_target_module_exists,
-    onload_layer,
-)
-from peft.utils import (
-    TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING,
-    ModulesToSaveWrapper,
-    _get_submodules,
-)
+from peft.tuners.tuners_utils import (BaseTuner, BaseTunerLayer,
+                                      check_target_module_exists, onload_layer)
+from peft.utils import (TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING,
+                        ModulesToSaveWrapper, _get_submodules)
 
 from .config import BOFTConfig
 from .layer import BOFTLayer, Conv2d, Linear
@@ -120,7 +113,9 @@ class BOFTModel(BaseTuner):
 
         # If it is not a BOFTLayer, create a new module, else update it with new adapters
         if not isinstance(target, BOFTLayer):
-            new_module = self._create_new_module(boft_config, adapter_name, target, **kwargs)
+            new_module = self._create_new_module(
+                boft_config, adapter_name, target, **kwargs
+            )
             if adapter_name not in self.active_adapters:
                 # adding an additional adapter: it is not automatically trainable
                 new_module.requires_grad_(False)
@@ -177,10 +172,16 @@ class BOFTModel(BaseTuner):
                         p.requires_grad = True
             elif bias == "boft_only":
                 for name, m in model.named_modules():
-                    if isinstance(m, BOFTLayer) and hasattr(m, "bias") and m.bias is not None:
+                    if (
+                        isinstance(m, BOFTLayer)
+                        and hasattr(m, "bias")
+                        and m.bias is not None
+                    ):
                         m.bias.requires_grad = True
             else:
-                raise NotImplementedError(f"Requested bias: {bias}, is not implemented.")
+                raise NotImplementedError(
+                    f"Requested bias: {bias}, is not implemented."
+                )
 
     @staticmethod
     def _create_new_module(boft_config, adapter_name, target, **kwargs):
@@ -212,14 +213,19 @@ class BOFTModel(BaseTuner):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.model, name)
 
     def get_peft_config_as_dict(self, inference: bool = False):
         config_dict = {}
         for key, value in self.peft_config.items():
-            config = {k: v.value if isinstance(v, Enum) else v for k, v in asdict(value).items()}
+            config = {
+                k: v.value if isinstance(v, Enum) else v
+                for k, v in asdict(value).items()
+            }
             if inference:
                 config["inference_mode"] = True
         config_dict[key] = config
@@ -248,7 +254,9 @@ class BOFTModel(BaseTuner):
         for module in self.model.modules():
             if isinstance(module, BOFTLayer):
                 if module.merged:
-                    warnings.warn("Adapter cannot be set when the model is merged. Unmerging the model first.")
+                    warnings.warn(
+                        "Adapter cannot be set when the model is merged. Unmerging the model first."
+                    )
                     module.unmerge()
                 module.set_adapter(adapter_name)
         self.active_adapter = adapter_name
@@ -256,10 +264,15 @@ class BOFTModel(BaseTuner):
     @staticmethod
     def _prepare_adapter_config(peft_config, model_config):
         if peft_config.target_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING:
+            if (
+                model_config["model_type"]
+                not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
+            ):
                 raise ValueError("Please specify `target_modules` in `peft_config`")
             peft_config.target_modules = set(
-                TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING[model_config["model_type"]]
+                TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
             )
         return peft_config
 
@@ -273,7 +286,9 @@ class BOFTModel(BaseTuner):
         if merge:
             self._check_merge_allowed()
 
-        key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if self.prefix not in key
+        ]
         desc = "Unloading " + ("and merging " if merge else "") + "model"
         for key in tqdm(key_list, disable=not progressbar, desc=desc):
             try:
@@ -284,14 +299,18 @@ class BOFTModel(BaseTuner):
                 if hasattr(target, "base_layer"):
                     if merge:
                         target.merge(safe_merge=safe_merge, adapter_names=adapter_names)
-                    self._replace_module(parent, target_name, target.get_base_layer(), target)
+                    self._replace_module(
+                        parent, target_name, target.get_base_layer(), target
+                    )
                 elif isinstance(target, ModulesToSaveWrapper):
                     # save any additional trainable modules part of `modules_to_save`
                     new_module = target.modules_to_save[target.active_adapter]
                     if hasattr(new_module, "base_layer"):
                         # check if the module is itself a tuner layer
                         if merge:
-                            new_module.merge(safe_merge=safe_merge, adapter_names=adapter_names)
+                            new_module.merge(
+                                safe_merge=safe_merge, adapter_names=adapter_names
+                            )
                         new_module = new_module.get_base_layer()
                     setattr(parent, target_name, new_module)
 
@@ -308,7 +327,9 @@ class BOFTModel(BaseTuner):
             raise ValueError(f"Adapter {adapter_name} does not exist")
         del self.peft_config[adapter_name]
 
-        key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if self.prefix not in key
+        ]
         new_adapter = None
         for key in key_list:
             _, target, _ = _get_submodules(self.model, key)
@@ -320,7 +341,10 @@ class BOFTModel(BaseTuner):
         self.active_adapter = new_adapter or []
 
     def merge_and_unload(
-        self, progressbar: bool = False, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+        self,
+        progressbar: bool = False,
+        safe_merge: bool = False,
+        adapter_names: Optional[List[str]] = None,
     ) -> torch.nn.Module:
         r"""
         This method merges the BOFT layers into the base model. This is needed if someone wants to use the base model

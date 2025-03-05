@@ -1,18 +1,14 @@
-import logging, nltk
+import logging
+
+import nltk
 import numpy as np
 from datasets import load_dataset, load_metric
-from transformers.utils import is_offline_mode
 from filelock import FileLock
-from transformers import (
-    AutoConfig,
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    DataCollatorForSeq2Seq,
-    MBartTokenizer,
-    MBartTokenizerFast,
-    MBart50Tokenizer,
-    MBart50TokenizerFast
-)
+from transformers import (AutoConfig, AutoModelForSeq2SeqLM, AutoTokenizer,
+                          DataCollatorForSeq2Seq, MBart50Tokenizer,
+                          MBart50TokenizerFast, MBartTokenizer,
+                          MBartTokenizerFast)
+from transformers.utils import is_offline_mode
 
 # reserence code: https://github.com/QingruZhang/AdaLoRA/blob/main/NLG_QA/examples/summarization/run_summarization.py
 
@@ -30,7 +26,12 @@ summarization_name_mapping = {
     "xsum": ("document", "summary"),
     "wiki_summary": ("article", "highlights"),
 }
-MULTILINGUAL_TOKENIZERS = [MBartTokenizer, MBartTokenizerFast, MBart50Tokenizer, MBart50TokenizerFast]
+MULTILINGUAL_TOKENIZERS = [
+    MBartTokenizer,
+    MBartTokenizerFast,
+    MBart50Tokenizer,
+    MBart50TokenizerFast,
+]
 
 
 def nlg_prepocess(data_args, training_args, model_args):
@@ -89,13 +90,21 @@ def nlg_prepocess(data_args, training_args, model_args):
     # The .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
     config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+        (
+            model_args.config_name
+            if model_args.config_name
+            else model_args.model_name_or_path
+        ),
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
+        (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else model_args.model_name_or_path
+        ),
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
@@ -112,14 +121,22 @@ def nlg_prepocess(data_args, training_args, model_args):
 
     model.resize_token_embeddings(len(tokenizer))
 
-    if model.config.decoder_start_token_id is None and isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
+    if model.config.decoder_start_token_id is None and isinstance(
+        tokenizer, (MBartTokenizer, MBartTokenizerFast)
+    ):
         if isinstance(tokenizer, MBartTokenizer):
-            model.config.decoder_start_token_id = tokenizer.lang_code_to_id[data_args.lang]
+            model.config.decoder_start_token_id = tokenizer.lang_code_to_id[
+                data_args.lang
+            ]
         else:
-            model.config.decoder_start_token_id = tokenizer.convert_tokens_to_ids(data_args.lang)
+            model.config.decoder_start_token_id = tokenizer.convert_tokens_to_ids(
+                data_args.lang
+            )
 
     if model.config.decoder_start_token_id is None:
-        raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
+        raise ValueError(
+            "Make sure that `config.decoder_start_token_id` is correctly defined"
+        )
 
     if (
         hasattr(model.config, "max_position_embeddings")
@@ -152,7 +169,9 @@ def nlg_prepocess(data_args, training_args, model_args):
     elif training_args.do_predict:
         column_names = raw_datasets["test"].column_names
     else:
-        logger.info("There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`.")
+        logger.info(
+            "There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`."
+        )
         return
 
     if isinstance(tokenizer, tuple(MULTILINGUAL_TOKENIZERS)):
@@ -166,14 +185,18 @@ def nlg_prepocess(data_args, training_args, model_args):
         # For multilingual translation models like mBART-50 and M2M100 we need to force the target language token
         # as the first generated token. We ask the user to explicitly provide this as --forced_bos_token argument.
         forced_bos_token_id = (
-            tokenizer.lang_code_to_id[data_args.forced_bos_token] if data_args.forced_bos_token is not None else None
+            tokenizer.lang_code_to_id[data_args.forced_bos_token]
+            if data_args.forced_bos_token is not None
+            else None
         )
         model.config.forced_bos_token_id = forced_bos_token_id
 
     # Get the column names for input/target.
     dataset_columns = summarization_name_mapping.get(data_args.dataset_name, None)
     if data_args.text_column is None:
-        text_column = dataset_columns[0] if dataset_columns is not None else column_names[0]
+        text_column = (
+            dataset_columns[0] if dataset_columns is not None else column_names[0]
+        )
     else:
         text_column = data_args.text_column
         if text_column not in column_names:
@@ -181,7 +204,9 @@ def nlg_prepocess(data_args, training_args, model_args):
                 f"--text_column' value '{data_args.text_column}' needs to be one of: {', '.join(column_names)}"
             )
     if data_args.summary_column is None:
-        summary_column = dataset_columns[1] if dataset_columns is not None else column_names[1]
+        summary_column = (
+            dataset_columns[1] if dataset_columns is not None else column_names[1]
+        )
     else:
         summary_column = data_args.summary_column
         if summary_column not in column_names:
@@ -193,7 +218,9 @@ def nlg_prepocess(data_args, training_args, model_args):
     max_target_length = data_args.max_target_length
     padding = "max_length" if data_args.pad_to_max_length else False
 
-    if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
+    if training_args.label_smoothing_factor > 0 and not hasattr(
+        model, "prepare_decoder_input_ids_from_labels"
+    ):
         logger.warning(
             "label_smoothing is enabled but the `prepare_decoder_input_ids_from_labels` method is not defined for"
             f"`{model.__class__.__name__}`. This will lead to loss being calculated twice and will take up more memory"
@@ -204,22 +231,33 @@ def nlg_prepocess(data_args, training_args, model_args):
 
         inputs, targets = [], []
         for i in range(len(examples[text_column])):
-            if examples[text_column][i] is not None and examples[summary_column][i] is not None:
+            if (
+                examples[text_column][i] is not None
+                and examples[summary_column][i] is not None
+            ):
                 inputs.append(examples[text_column][i])
                 targets.append(examples[summary_column][i])
 
         inputs = [prefix + inp for inp in inputs]
-        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
+        model_inputs = tokenizer(
+            inputs,
+            max_length=data_args.max_source_length,
+            padding=padding,
+            truncation=True,
+        )
 
         # Setup the tokenizer for targets
         with tokenizer.as_target_tokenizer():
-            labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
+            labels = tokenizer(
+                targets, max_length=max_target_length, padding=padding, truncation=True
+            )
 
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
         if padding == "max_length" and data_args.ignore_pad_token_for_loss:
             labels["input_ids"] = [
-                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+                [(l if l != tokenizer.pad_token_id else -100) for l in label]
+                for label in labels["input_ids"]
             ]
 
         model_inputs["labels"] = labels["input_ids"]
@@ -252,7 +290,9 @@ def nlg_prepocess(data_args, training_args, model_args):
         if data_args.max_val_samples is not None:
             max_val_samples = min(len(eval_dataset), data_args.max_val_samples)
             eval_dataset = eval_dataset.select(range(max_val_samples))
-        with training_args.main_process_first(desc="validation dataset map pre-processing"):
+        with training_args.main_process_first(
+            desc="validation dataset map pre-processing"
+        ):
             eval_dataset = eval_dataset.map(
                 preprocess_function,
                 batched=True,
@@ -271,7 +311,9 @@ def nlg_prepocess(data_args, training_args, model_args):
         if data_args.max_predict_samples is not None:
             max_predict_samples = min(len(test_dataset), data_args.max_predict_samples)
             test_dataset = test_dataset.select(range(max_predict_samples))
-        with training_args.main_process_first(desc="prediction dataset map pre-processing"):
+        with training_args.main_process_first(
+            desc="prediction dataset map pre-processing"
+        ):
             test_dataset = test_dataset.map(
                 preprocess_function,
                 batched=True,
@@ -282,7 +324,9 @@ def nlg_prepocess(data_args, training_args, model_args):
             )
 
     # Data collator
-    label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
+    label_pad_token_id = (
+        -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
+    )
     data_collator = DataCollatorForSeq2Seq(
         tokenizer,
         model=model,
@@ -316,21 +360,25 @@ def nlg_prepocess(data_args, training_args, model_args):
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
 
-        result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
+        result = metric.compute(
+            predictions=decoded_preds, references=decoded_labels, use_stemmer=True
+        )
         # Extract a few results from ROUGE
         result = {key: value.mid.fmeasure * 100 for key, value in result.items()}
 
-        prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
+        prediction_lens = [
+            np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds
+        ]
         result["gen_len"] = np.mean(prediction_lens)
         result = {k: round(v, 4) for k, v in result.items()}
         return result
-    
+
     return (
-        train_dataset, 
+        train_dataset,
         eval_dataset,
         test_dataset,
-        data_collator, 
-        compute_metrics, 
-        model, 
-        tokenizer
+        data_collator,
+        compute_metrics,
+        model,
+        tokenizer,
     )

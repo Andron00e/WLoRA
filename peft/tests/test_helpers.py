@@ -139,7 +139,10 @@ class TestScalingAdapters:
 
         # we expect a type error here becuase of wrong datatpye of multiplier
         multiplier = "a"
-        with pytest.raises(TypeError, match=f"Argument multiplier should be of type float, got {type(multiplier)}"):
+        with pytest.raises(
+            TypeError,
+            match=f"Argument multiplier should be of type float, got {type(multiplier)}",
+        ):
             with rescale_adapter_scale(model=model, multiplier=multiplier):
                 pass
 
@@ -148,7 +151,9 @@ class TestScalingAdapters:
 
         # we expect a value error here because the model
         # does not have lora layers
-        with pytest.raises(ValueError, match="scaling is only supported for models with `LoraLayer`s"):
+        with pytest.raises(
+            ValueError, match="scaling is only supported for models with `LoraLayer`s"
+        ):
             with rescale_adapter_scale(model=model, multiplier=0.5):
                 pass
 
@@ -192,14 +197,25 @@ class TestScalingAdapters:
         unet_kwargs = {
             "r": 8,
             "lora_alpha": 32,
-            "target_modules": ["proj_in", "proj_out", "to_k", "to_q", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2"],
+            "target_modules": [
+                "proj_in",
+                "proj_out",
+                "to_k",
+                "to_q",
+                "to_v",
+                "to_out.0",
+                "ff.net.0.proj",
+                "ff.net.2",
+            ],
             "lora_dropout": 0.0,
             "bias": "none",
         }
 
         # Instantiate text_encoder adapter
         config_text_encoder = LoraConfig(**text_encoder_kwargs)
-        pipeline.text_encoder = get_peft_model(pipeline.text_encoder, config_text_encoder)
+        pipeline.text_encoder = get_peft_model(
+            pipeline.text_encoder, config_text_encoder
+        )
 
         # Instantiate unet adapter
         config_unet = LoraConfig(**unet_kwargs)
@@ -208,15 +224,21 @@ class TestScalingAdapters:
         text_scales_before_scaling = self.get_scale_from_modules(pipeline.text_encoder)
         unet_scales_before_scaling = self.get_scale_from_modules(pipeline.unet)
 
-        with rescale_adapter_scale(model=pipeline.text_encoder, multiplier=0.5), rescale_adapter_scale(
-            model=pipeline.unet, multiplier=0.5
-        ):
-            text_scales_during_scaling = self.get_scale_from_modules(pipeline.text_encoder)
+        with rescale_adapter_scale(
+            model=pipeline.text_encoder, multiplier=0.5
+        ), rescale_adapter_scale(model=pipeline.unet, multiplier=0.5):
+            text_scales_during_scaling = self.get_scale_from_modules(
+                pipeline.text_encoder
+            )
             unet_scales_during_scaling = self.get_scale_from_modules(pipeline.unet)
             for key in text_scales_before_scaling.keys():
-                assert text_scales_before_scaling[key] != text_scales_during_scaling[key]
+                assert (
+                    text_scales_before_scaling[key] != text_scales_during_scaling[key]
+                )
             for key in unet_scales_before_scaling.keys():
-                assert unet_scales_before_scaling[key] != unet_scales_during_scaling[key]
+                assert (
+                    unet_scales_before_scaling[key] != unet_scales_during_scaling[key]
+                )
 
         text_scales_fter_scaling = self.get_scale_from_modules(pipeline.text_encoder)
         unet_scales_after_scaling = self.get_scale_from_modules(pipeline.unet)
@@ -368,4 +390,6 @@ class TestScalingAdapters:
         with torch.no_grad():
             logits_merged_scaling = model(**inputs).logits
 
-        assert torch.allclose(logits_merged_scaling, logits_unmerged_scaling, atol=1e-4, rtol=1e-4)
+        assert torch.allclose(
+            logits_merged_scaling, logits_unmerged_scaling, atol=1e-4, rtol=1e-4
+        )

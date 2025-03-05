@@ -26,8 +26,9 @@ from peft import LoraConfig, PeftType, TaskType, XLoraConfig, get_peft_model
 from peft.peft_model import PeftModel
 from peft.utils import infer_device
 
-
-uses_transformers_4_45 = packaging.version.parse(transformers.__version__) >= packaging.version.parse("4.45.0")
+uses_transformers_4_45 = packaging.version.parse(
+    transformers.__version__
+) >= packaging.version.parse("4.45.0")
 
 
 class TestXlora:
@@ -62,7 +63,11 @@ class TestXlora:
         file_names = []
         for i in range(1, self.num_loras + 1):
             torch.manual_seed(i)
-            lora_config = LoraConfig(task_type="CAUSAL_LM", init_lora_weights=False, target_modules=["embed_tokens"])
+            lora_config = LoraConfig(
+                task_type="CAUSAL_LM",
+                init_lora_weights=False,
+                target_modules=["embed_tokens"],
+            )
             model = AutoModelForCausalLM.from_pretrained(self.model_id)
             peft_model = get_peft_model(model, lora_config)
             file_name = os.path.join(lora_embedding_dir, f"checkpoint-{i}")
@@ -72,14 +77,19 @@ class TestXlora:
 
     @pytest.fixture(scope="class")
     def tokenizer(self):
-        tokenizer = AutoTokenizer.from_pretrained(self.model_id, trust_remote_code=True, device_map=self.torch_device)
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.model_id, trust_remote_code=True, device_map=self.torch_device
+        )
         return tokenizer
 
     @pytest.fixture(scope="function")
     def embedding_model(self, saved_lora_embedding_adapters):
         model = AutoModelForCausalLM.from_pretrained(self.model_id)
         model.config.use_cache = False
-        adapters = {str(i): file_name for i, file_name in enumerate(saved_lora_embedding_adapters)}
+        adapters = {
+            str(i): file_name
+            for i, file_name in enumerate(saved_lora_embedding_adapters)
+        }
 
         peft_config = XLoraConfig(
             task_type=TaskType.CAUSAL_LM,
@@ -95,7 +105,9 @@ class TestXlora:
     def model(self, saved_lora_adapters):
         model = AutoModelForCausalLM.from_pretrained(self.model_id)
         model.config.use_cache = False
-        adapters = {str(i): file_name for i, file_name in enumerate(saved_lora_adapters)}
+        adapters = {
+            str(i): file_name for i, file_name in enumerate(saved_lora_adapters)
+        }
 
         peft_config = XLoraConfig(
             task_type=TaskType.CAUSAL_LM,
@@ -111,7 +123,9 @@ class TestXlora:
     def model_layerwise(self, saved_lora_adapters):
         model = AutoModelForCausalLM.from_pretrained(self.model_id)
         model.config.use_cache = False
-        adapters = {str(i): file_name for i, file_name in enumerate(saved_lora_adapters)}
+        adapters = {
+            str(i): file_name for i, file_name in enumerate(saved_lora_adapters)
+        }
 
         peft_config = XLoraConfig(
             task_type=TaskType.CAUSAL_LM,
@@ -126,7 +140,9 @@ class TestXlora:
 
     def test_functional(self, tokenizer, model):
         model.enable_scalings_logging()
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -134,11 +150,15 @@ class TestXlora:
         assert torch.isfinite(outputs[: inputs.shape[1] :]).all()
 
     # TODO: remove the skip when 4.45 is released!
-    @pytest.mark.skipif(not uses_transformers_4_45, reason="Requires transformers >= 4.45")
+    @pytest.mark.skipif(
+        not uses_transformers_4_45, reason="Requires transformers >= 4.45"
+    )
     def test_scalings_logging_methods(self, tokenizer, model):
         model.enable_scalings_logging()
 
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -151,7 +171,9 @@ class TestXlora:
 
         model.disable_scalings_logging()
 
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -178,7 +200,9 @@ class TestXlora:
         assert model.internal_xlora_classifier.config.global_scaling_weight == 1.5
         assert model.get_global_scaling_weight() == 1.5
 
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -188,7 +212,9 @@ class TestXlora:
         assert str(model) is not None
 
     def test_save_load_functional(self, tokenizer, model, tmp_path):
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -202,9 +228,13 @@ class TestXlora:
 
         model = AutoModelForCausalLM.from_pretrained(self.model_id)
         model.config.use_cache = False
-        model = PeftModel.from_pretrained(model=model, model_id=tmp_path).to(self.torch_device)
+        model = PeftModel.from_pretrained(model=model, model_id=tmp_path).to(
+            self.torch_device
+        )
 
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -214,7 +244,9 @@ class TestXlora:
         assert torch.equal(after_logits, before_logits)
 
     def test_save_load_functional_pt(self, tokenizer, model, tmp_path):
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -228,11 +260,13 @@ class TestXlora:
 
         model = AutoModelForCausalLM.from_pretrained(self.model_id)
         model.config.use_cache = False
-        model = PeftModel.from_pretrained(model=model, model_id=tmp_path, safe_serialization=False).to(
-            self.torch_device
-        )
+        model = PeftModel.from_pretrained(
+            model=model, model_id=tmp_path, safe_serialization=False
+        ).to(self.torch_device)
 
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -245,7 +279,9 @@ class TestXlora:
         model.set_topk_lora(2)
         assert model.internal_xlora_classifier.config.top_k_lora == 2
 
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -258,7 +294,9 @@ class TestXlora:
         model.internal_xlora_classifier.config.enable_softmax = False
         model.internal_xlora_classifier.config.enable_softmax_topk = True
 
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -276,12 +314,20 @@ class TestXlora:
 
         # Set it to 2 and make sure it is 1/a
         model.set_scaling_pass_value(None)
-        assert model.internal_xlora_classifier.override_scaling_pass_value == 1 / self.num_loras
-        assert model.internal_xlora_classifier.config.scaling_pass_value == 1 / self.num_loras
+        assert (
+            model.internal_xlora_classifier.override_scaling_pass_value
+            == 1 / self.num_loras
+        )
+        assert (
+            model.internal_xlora_classifier.config.scaling_pass_value
+            == 1 / self.num_loras
+        )
 
     def test_functional_layerwise(self, tokenizer, model_layerwise):
         model_layerwise.enable_scalings_logging()
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = model_layerwise.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -290,7 +336,9 @@ class TestXlora:
 
     def test_disable_adapter(self, tokenizer, model):
         model.enable_scalings_logging()
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         with model.disable_adapter():
             outputs_disabled = model.generate(
                 input_ids=inputs.to(self.torch_device),
@@ -305,7 +353,9 @@ class TestXlora:
         assert not torch.equal(outputs, outputs_disabled)
 
     def test_functional_embedding(self, tokenizer, embedding_model):
-        inputs = tokenizer.encode("Python is a", add_special_tokens=False, return_tensors="pt")
+        inputs = tokenizer.encode(
+            "Python is a", add_special_tokens=False, return_tensors="pt"
+        )
         outputs = embedding_model.generate(
             input_ids=inputs.to(self.torch_device),
             max_new_tokens=32,
@@ -338,9 +388,17 @@ class TestXlora:
         )
         model = get_peft_model(model, peft_config)
 
-        downloaded = huggingface_hub.hf_hub_download(repo_id=adapters["0"], filename="adapter_model.safetensors")
+        downloaded = huggingface_hub.hf_hub_download(
+            repo_id=adapters["0"], filename="adapter_model.safetensors"
+        )
         sd = load_file(downloaded)
-        w0 = model.base_model.model.model.decoder.layers[0].self_attn.q_proj.lora_A["0"].weight
-        w1 = sd["base_model.model.model.decoder.layers.0.self_attn.q_proj.lora_A.weight"]
+        w0 = (
+            model.base_model.model.model.decoder.layers[0]
+            .self_attn.q_proj.lora_A["0"]
+            .weight
+        )
+        w1 = sd[
+            "base_model.model.model.decoder.layers.0.self_attn.q_proj.lora_A.weight"
+        ]
 
         assert torch.allclose(w0, w1)

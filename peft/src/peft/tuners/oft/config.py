@@ -58,7 +58,10 @@ class OFTConfig(LycorisConfig):
 
     r: int = field(default=8, metadata={"help": "OFT rank"})
     module_dropout: float = field(
-        default=0.0, metadata={"help": "The dropout probability for disabling OFT modules during training"}
+        default=0.0,
+        metadata={
+            "help": "The dropout probability for disabling OFT modules during training"
+        },
     )
     target_modules: Optional[Union[List[str], str]] = field(
         default=None,
@@ -115,5 +118,7 @@ class OFTConfig(LycorisConfig):
     def __post_init__(self):
         self.peft_type = PeftType.OFT
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )

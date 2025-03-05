@@ -13,9 +13,9 @@ import torch.nn as nn
 from diffusers import UNet2DConditionModel
 from transformers import CLIPTextModel
 
-from peft import LoHaConfig, LoKrConfig, LoraConfig, PeftType, get_peft_model, set_peft_model_state_dict
+from peft import (LoHaConfig, LoKrConfig, LoraConfig, PeftType, get_peft_model,
+                  set_peft_model_state_dict)
 from peft.tuners.lokr.layer import factorization
-
 
 # Default kohya_ss LoRA replacement modules
 # https://github.com/kohya-ss/sd-scripts/blob/c924c47f374ac1b6e33e71f82948eb1853e2243f/networks/lora.py#L661
@@ -37,7 +37,9 @@ class LoRAInfo:
 
     def peft_state_dict(self) -> Dict[str, torch.Tensor]:
         if self.lora_A is None or self.lora_B is None:
-            raise ValueError("At least one of lora_A or lora_B is None, they must both be provided")
+            raise ValueError(
+                "At least one of lora_A or lora_B is None, they must both be provided"
+            )
         return {
             f"base_model.model.{self.peft_key}.lora_A.weight": self.lora_A,
             f"base_model.model.{self.peft_key}.lora_B.weight": self.lora_B,
@@ -58,7 +60,12 @@ class LoHaInfo:
     hada_t2: Optional[torch.Tensor] = None
 
     def peft_state_dict(self) -> Dict[str, torch.Tensor]:
-        if self.hada_w1_a is None or self.hada_w1_b is None or self.hada_w2_a is None or self.hada_w2_b is None:
+        if (
+            self.hada_w1_a is None
+            or self.hada_w1_b is None
+            or self.hada_w2_a is None
+            or self.hada_w2_b is None
+        ):
             raise ValueError(
                 "At least one of hada_w1_a, hada_w1_b, hada_w2_a, hada_w2_b is missing, they all must be provided"
             )
@@ -69,9 +76,12 @@ class LoHaInfo:
             f"base_model.model.{self.peft_key}.hada_w2_b": self.hada_w2_b,
         }
         if not (
-            (self.hada_t1 is None and self.hada_t2 is None) or (self.hada_t1 is not None and self.hada_t2 is not None)
+            (self.hada_t1 is None and self.hada_t2 is None)
+            or (self.hada_t1 is not None and self.hada_t2 is not None)
         ):
-            raise ValueError("hada_t1 and hada_t2 must be either both present or not present at the same time")
+            raise ValueError(
+                "hada_t1 and hada_t2 must be either both present or not present at the same time"
+            )
         if self.hada_t1 is not None and self.hada_t2 is not None:
             state_dict[f"base_model.model.{self.peft_key}.hada_t1"] = self.hada_t1
             state_dict[f"base_model.model.{self.peft_key}.hada_t2"] = self.hada_t2
@@ -93,11 +103,19 @@ class LoKrInfo:
     lokr_t2: Optional[torch.Tensor] = None
 
     def peft_state_dict(self) -> Dict[str, torch.Tensor]:
-        if (self.lokr_w1 is None) and ((self.lokr_w1_a is None) or (self.lokr_w1_b is None)):
-            raise ValueError("Either lokr_w1 or both lokr_w1_a and lokr_w1_b should be provided")
+        if (self.lokr_w1 is None) and (
+            (self.lokr_w1_a is None) or (self.lokr_w1_b is None)
+        ):
+            raise ValueError(
+                "Either lokr_w1 or both lokr_w1_a and lokr_w1_b should be provided"
+            )
 
-        if (self.lokr_w2 is None) and ((self.lokr_w2_a is None) or (self.lokr_w2_b is None)):
-            raise ValueError("Either lokr_w2 or both lokr_w2_a and lokr_w2_b should be provided")
+        if (self.lokr_w2 is None) and (
+            (self.lokr_w2_a is None) or (self.lokr_w2_b is None)
+        ):
+            raise ValueError(
+                "Either lokr_w2 or both lokr_w2_a and lokr_w2_b should be provided"
+            )
 
         state_dict = {}
 
@@ -141,8 +159,12 @@ def construct_peft_loraconfig(info: Dict[str, LoRAInfo], **kwargs) -> LoraConfig
     lora_alpha = Counter(alphas.values()).most_common(1)[0][0]
 
     # Determine which modules have different rank and alpha
-    rank_pattern = dict(sorted(filter(lambda x: x[1] != r, ranks.items()), key=lambda x: x[0]))
-    alpha_pattern = dict(sorted(filter(lambda x: x[1] != lora_alpha, alphas.items()), key=lambda x: x[0]))
+    rank_pattern = dict(
+        sorted(filter(lambda x: x[1] != r, ranks.items()), key=lambda x: x[0])
+    )
+    alpha_pattern = dict(
+        sorted(filter(lambda x: x[1] != lora_alpha, alphas.items()), key=lambda x: x[0])
+    )
 
     config = LoraConfig(
         r=r,
@@ -180,11 +202,17 @@ def construct_peft_lohaconfig(info: Dict[str, LoHaInfo], **kwargs) -> LoHaConfig
     alpha = Counter(alphas.values()).most_common(1)[0][0]
 
     # Determine which modules have different rank and alpha
-    rank_pattern = dict(sorted(filter(lambda x: x[1] != r, ranks.items()), key=lambda x: x[0]))
-    alpha_pattern = dict(sorted(filter(lambda x: x[1] != alpha, alphas.items()), key=lambda x: x[0]))
+    rank_pattern = dict(
+        sorted(filter(lambda x: x[1] != r, ranks.items()), key=lambda x: x[0])
+    )
+    alpha_pattern = dict(
+        sorted(filter(lambda x: x[1] != alpha, alphas.items()), key=lambda x: x[0])
+    )
 
     # Determine whether any of modules have effective conv2d decomposition
-    use_effective_conv2d = any((val.hada_t1 is not None) or (val.hada_t2 is not None) for val in info.values())
+    use_effective_conv2d = any(
+        (val.hada_t1 is not None) or (val.hada_t2 is not None) for val in info.values()
+    )
 
     config = LoHaConfig(
         r=r,
@@ -201,7 +229,9 @@ def construct_peft_lohaconfig(info: Dict[str, LoHaInfo], **kwargs) -> LoHaConfig
     return config
 
 
-def construct_peft_lokrconfig(info: Dict[str, LoKrInfo], decompose_factor: int = -1, **kwargs) -> LoKrConfig:
+def construct_peft_lokrconfig(
+    info: Dict[str, LoKrInfo], decompose_factor: int = -1, **kwargs
+) -> LoKrConfig:
     """Constructs LoKrConfig from data extracted from adapter checkpoint
 
     Args:
@@ -223,14 +253,21 @@ def construct_peft_lokrconfig(info: Dict[str, LoKrInfo], decompose_factor: int =
     alpha = Counter(alphas.values()).most_common(1)[0][0]
 
     # Determine which modules have different rank and alpha
-    rank_pattern = dict(sorted(filter(lambda x: x[1] != r, ranks.items()), key=lambda x: x[0]))
-    alpha_pattern = dict(sorted(filter(lambda x: x[1] != alpha, alphas.items()), key=lambda x: x[0]))
+    rank_pattern = dict(
+        sorted(filter(lambda x: x[1] != r, ranks.items()), key=lambda x: x[0])
+    )
+    alpha_pattern = dict(
+        sorted(filter(lambda x: x[1] != alpha, alphas.items()), key=lambda x: x[0])
+    )
 
     # Determine whether any of modules have effective conv2d decomposition
     use_effective_conv2d = any((val.lokr_t2 is not None) for val in info.values())
 
     # decompose_both should be enabled if any w1 matrix in any layer is decomposed into 2
-    decompose_both = any((val.lokr_w1_a is not None and val.lokr_w1_b is not None) for val in info.values())
+    decompose_both = any(
+        (val.lokr_w1_a is not None and val.lokr_w1_b is not None)
+        for val in info.values()
+    )
 
     # Determining decompose factor is a bit tricky (but it is most often -1)
     # Check that decompose_factor is equal to provided
@@ -253,7 +290,9 @@ def construct_peft_lokrconfig(info: Dict[str, LoKrInfo], decompose_factor: int =
         # We need to check, whether decompose_factor is really -1 or not
         shape = (w1_shape[0], w2_shape[0])
         if factorization(shape[0] * shape[1], factor=-1) != shape:
-            raise ValueError("Cannot infer decompose_factor, probably it is not equal to -1")
+            raise ValueError(
+                "Cannot infer decompose_factor, probably it is not equal to -1"
+            )
 
     config = LoKrConfig(
         r=r,
@@ -272,7 +311,9 @@ def construct_peft_lokrconfig(info: Dict[str, LoKrInfo], decompose_factor: int =
     return config
 
 
-def combine_peft_state_dict(info: Dict[str, Union[LoRAInfo, LoHaInfo]]) -> Dict[str, torch.Tensor]:
+def combine_peft_state_dict(
+    info: Dict[str, Union[LoRAInfo, LoHaInfo]]
+) -> Dict[str, torch.Tensor]:
     result = {}
     for key_info in info.values():
         result.update(key_info.peft_state_dict())
@@ -306,7 +347,13 @@ def detect_adapter_type(keys: List[str]) -> PeftType:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--sd_checkpoint", default=None, type=str, required=True, help="SD checkpoint to use")
+    parser.add_argument(
+        "--sd_checkpoint",
+        default=None,
+        type=str,
+        required=True,
+        help="SD checkpoint to use",
+    )
 
     parser.add_argument(
         "--adapter_path",
@@ -316,9 +363,17 @@ if __name__ == "__main__":
         help="Path to downloaded adapter to convert",
     )
 
-    parser.add_argument("--dump_path", default=None, type=str, required=True, help="Path to the output peft adapter.")
+    parser.add_argument(
+        "--dump_path",
+        default=None,
+        type=str,
+        required=True,
+        help="Path to the output peft adapter.",
+    )
 
-    parser.add_argument("--half", action="store_true", help="Save weights in half precision.")
+    parser.add_argument(
+        "--half", action="store_true", help="Save weights in half precision."
+    )
     parser.add_argument(
         "--loha_conv2d_weights_fix",
         action="store_true",
@@ -331,7 +386,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load all models that we need to add adapter to
-    text_encoder = CLIPTextModel.from_pretrained(args.sd_checkpoint, subfolder="text_encoder")
+    text_encoder = CLIPTextModel.from_pretrained(
+        args.sd_checkpoint, subfolder="text_encoder"
+    )
     unet = UNet2DConditionModel.from_pretrained(args.sd_checkpoint, subfolder="unet")
 
     # Construct possible mapping from kohya keys to peft keys
@@ -397,7 +454,9 @@ if __name__ == "__main__":
 
             # Find corresponding peft key
             if kohya_key not in models_keys:
-                raise ValueError(f"Cannot find corresponding key for diffusers/transformers model: {kohya_key}")
+                raise ValueError(
+                    f"Cannot find corresponding key for diffusers/transformers model: {kohya_key}"
+                )
             peft_key = models_keys[kohya_key]
 
             # Retrieve corresponding layer of model
@@ -405,7 +464,9 @@ if __name__ == "__main__":
 
             # Create a corresponding adapter info
             if peft_key not in adapter_info[model_type]:
-                adapter_info[model_type][peft_key] = adapter_info_cls(kohya_key=kohya_key, peft_key=peft_key)
+                adapter_info[model_type][peft_key] = adapter_info_cls(
+                    kohya_key=kohya_key, peft_key=peft_key
+                )
 
             tensor = f.get_tensor(key)
             if kohya_type == "alpha":
@@ -448,7 +509,8 @@ if __name__ == "__main__":
             elif kohya_type == "lokr_w1":
                 adapter_info[model_type][peft_key].lokr_w1 = tensor
                 if isinstance(layer, nn.Linear) or (
-                    isinstance(layer, nn.Conv2d) and tuple(layer.weight.shape[2:]) == (1, 1)
+                    isinstance(layer, nn.Conv2d)
+                    and tuple(layer.weight.shape[2:]) == (1, 1)
                 ):
                     adapter_info[model_type][peft_key].rank = rank
                 elif isinstance(layer, nn.Conv2d):
@@ -456,7 +518,8 @@ if __name__ == "__main__":
             elif kohya_type == "lokr_w2":
                 adapter_info[model_type][peft_key].lokr_w2 = tensor
                 if isinstance(layer, nn.Linear) or (
-                    isinstance(layer, nn.Conv2d) and tuple(layer.weight.shape[2:]) == (1, 1)
+                    isinstance(layer, nn.Conv2d)
+                    and tuple(layer.weight.shape[2:]) == (1, 1)
                 ):
                     adapter_info[model_type][peft_key].rank = rank
                 elif isinstance(layer, nn.Conv2d):
@@ -487,7 +550,9 @@ if __name__ == "__main__":
         if len(adapter_info[model_name]) == 0:
             continue
 
-        config = construct_config_fn(adapter_info[model_name], decompose_factor=decompose_factor)
+        config = construct_config_fn(
+            adapter_info[model_name], decompose_factor=decompose_factor
+        )
 
         # Output warning for LoHa with use_effective_conv2d
         if (
@@ -505,7 +570,9 @@ if __name__ == "__main__":
             model, combine_peft_state_dict(adapter_info[model_name])
         )
         if len(unexpected_keys) > 0:
-            raise ValueError(f"Unexpected keys {unexpected_keys} found during conversion")
+            raise ValueError(
+                f"Unexpected keys {unexpected_keys} found during conversion"
+            )
 
         if args.half:
             model.to(torch.float16)

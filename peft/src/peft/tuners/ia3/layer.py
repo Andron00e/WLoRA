@@ -41,10 +41,15 @@ class IA3Layer(BaseTunerLayer):
         elif isinstance(base_layer, nn.Conv2d):
             in_features, out_features = base_layer.in_channels, base_layer.out_channels
         elif isinstance(base_layer, nn.Embedding):
-            in_features, out_features = base_layer.num_embeddings, base_layer.embedding_dim
+            in_features, out_features = (
+                base_layer.num_embeddings,
+                base_layer.embedding_dim,
+            )
         elif isinstance(base_layer, Conv1D):
             in_features, out_features = (
-                base_layer.weight.ds_shape if hasattr(base_layer.weight, "ds_shape") else base_layer.weight.shape
+                base_layer.weight.ds_shape
+                if hasattr(base_layer.weight, "ds_shape")
+                else base_layer.weight.shape
             )
         else:
             raise ValueError(f"Unsupported layer type {type(base_layer)}")
@@ -89,7 +94,9 @@ class Linear(nn.Module, IA3Layer):
         self._active_adapter = adapter_name
         self.update_layer(adapter_name, init_ia3_weights)
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+    ) -> None:
         """
         Merge the active adapter weights into the base weights
 
@@ -122,12 +129,16 @@ class Linear(nn.Module, IA3Layer):
                         )
                     base_layer.weight.data = orig_weights.to(orig_dtype)
                 else:
-                    base_layer.weight.data = torch.mul(base_layer.weight.data, ia3_l).to(orig_dtype)
+                    base_layer.weight.data = torch.mul(
+                        base_layer.weight.data, ia3_l
+                    ).to(orig_dtype)
 
                 if not self.is_feedforward and (base_layer.bias is not None):
                     scaling = self.ia3_l[active_adapter].reshape(base_layer.bias.shape)
                     orig_dtype = base_layer.bias.data.dtype
-                    base_layer.bias.data = torch.mul(base_layer.bias.data, scaling.data).to(orig_dtype)
+                    base_layer.bias.data = torch.mul(
+                        base_layer.bias.data, scaling.data
+                    ).to(orig_dtype)
 
                 self.merged_adapters.append(active_adapter)
 
@@ -145,14 +156,21 @@ class Linear(nn.Module, IA3Layer):
             if active_adapter in self.ia3_l.keys():
                 base_layer = self.get_base_layer()
                 # Add tolerace to avoid division by zero
-                ia3_l = transpose(self.ia3_l[active_adapter].data, self.fan_in_fan_out) + 1e-8
+                ia3_l = (
+                    transpose(self.ia3_l[active_adapter].data, self.fan_in_fan_out)
+                    + 1e-8
+                )
                 orig_dtype = base_layer.weight.data.dtype
-                base_layer.weight.data = torch.div(base_layer.weight.data, ia3_l).to(orig_dtype)
+                base_layer.weight.data = torch.div(base_layer.weight.data, ia3_l).to(
+                    orig_dtype
+                )
 
                 if not self.is_feedforward and (base_layer.bias is not None):
                     scaling = self.ia3_l[active_adapter].reshape(base_layer.bias.shape)
                     orig_dtype = base_layer.bias.data.dtype
-                    base_layer.bias.data = torch.div(base_layer.bias.data, scaling.data + 1e-8).to(orig_dtype)
+                    base_layer.bias.data = torch.div(
+                        base_layer.bias.data, scaling.data + 1e-8
+                    ).to(orig_dtype)
 
     def forward(self, x: torch.Tensor, *args: Any, **kwargs: Any) -> torch.Tensor:
         dtype = previous_dtype = x.dtype
@@ -213,7 +231,9 @@ class Conv2d(nn.Module, IA3Layer):
         self._move_adapter_to_device_of_base_layer(adapter_name)
         self.set_adapter(self.active_adapters)
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+    ) -> None:
         """
         Merge the active adapter weights into the base weights
 
@@ -239,7 +259,9 @@ class Conv2d(nn.Module, IA3Layer):
                     ia3_scaling = ia3_scaling.permute(1, 0, 2, 3)
 
                 if safe_merge:
-                    output_weight = torch.mul(base_layer.weight.data, ia3_scaling).clone()
+                    output_weight = torch.mul(
+                        base_layer.weight.data, ia3_scaling
+                    ).clone()
 
                     if not torch.isfinite(output_weight).all():
                         raise ValueError(
@@ -248,7 +270,9 @@ class Conv2d(nn.Module, IA3Layer):
 
                     base_layer.weight.data = output_weight
                 else:
-                    base_layer.weight.data = torch.mul(base_layer.weight.data, ia3_scaling)
+                    base_layer.weight.data = torch.mul(
+                        base_layer.weight.data, ia3_scaling
+                    )
 
                 if not self.is_feedforward and (base_layer.bias is not None):
                     scaling = self.ia3_l[active_adapter].reshape(base_layer.bias.shape)
@@ -273,7 +297,9 @@ class Conv2d(nn.Module, IA3Layer):
                 ia3_scaling = self.ia3_l[active_adapter].data
                 if not self.is_feedforward:
                     ia3_scaling = ia3_scaling.permute(1, 0, 2, 3)
-                base_layer.weight.data = torch.div(base_layer.weight.data, ia3_scaling + 1e-8)
+                base_layer.weight.data = torch.div(
+                    base_layer.weight.data, ia3_scaling + 1e-8
+                )
 
                 if not self.is_feedforward and (base_layer.bias is not None):
                     scaling = self.ia3_l[active_adapter].reshape(base_layer.bias.shape)

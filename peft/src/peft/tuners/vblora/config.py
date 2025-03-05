@@ -80,7 +80,9 @@ class VBLoRAConfig(PeftConfig):
     r: int = field(default=4, metadata={"help": "The rank of incremental matrices."})
     num_vectors: int = field(
         default=256,
-        metadata={"help": "Number of vectors in the vector bank. Use higher values when the model size increases."},
+        metadata={
+            "help": "Number of vectors in the vector bank. Use higher values when the model size increases."
+        },
     )
     vector_length: int = field(
         default=256,
@@ -122,9 +124,16 @@ class VBLoRAConfig(PeftConfig):
     vblora_dropout: float = field(default=0.0, metadata={"help": "VBLoRA dropout"})
     fan_in_fan_out: bool = field(
         default=False,
-        metadata={"help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"},
+        metadata={
+            "help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"
+        },
     )
-    bias: str = field(default="none", metadata={"help": "Bias type for VBLoRA. Can be 'none', 'all' or 'vblora_only'"})
+    bias: str = field(
+        default="none",
+        metadata={
+            "help": "Bias type for VBLoRA. Can be 'none', 'all' or 'vblora_only'"
+        },
+    )
     modules_to_save: Optional[List[str]] = field(
         default=None,
         metadata={
@@ -173,5 +182,7 @@ class VBLoRAConfig(PeftConfig):
     def __post_init__(self):
         self.peft_type = PeftType.VBLORA
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )

@@ -19,15 +19,9 @@ import pytest
 import torch
 from accelerate.test_utils.testing import get_backend
 
-from peft.import_utils import (
-    is_aqlm_available,
-    is_auto_awq_available,
-    is_auto_gptq_available,
-    is_eetq_available,
-    is_hqq_available,
-    is_optimum_available,
-)
-
+from peft.import_utils import (is_aqlm_available, is_auto_awq_available,
+                               is_auto_gptq_available, is_eetq_available,
+                               is_hqq_available, is_optimum_available)
 
 torch_device, device_count, memory_allocated_func = get_backend()
 
@@ -37,7 +31,9 @@ def require_non_cpu(test_case):
     Decorator marking a test that requires a hardware accelerator backend. These tests are skipped when there are no
     hardware accelerator available.
     """
-    return unittest.skipUnless(torch_device != "cpu", "test requires a hardware accelerator")(test_case)
+    return unittest.skipUnless(
+        torch_device != "cpu", "test requires a hardware accelerator"
+    )(test_case)
 
 
 def require_torch_gpu(test_case):
@@ -66,7 +62,8 @@ def require_multi_accelerator(test_case):
     multiple accelerators.
     """
     return unittest.skipUnless(
-        torch_device != "cpu" and device_count > 1, "test requires multiple hardware accelerators"
+        torch_device != "cpu" and device_count > 1,
+        "test requires multiple hardware accelerators",
     )(test_case)
 
 
@@ -87,7 +84,9 @@ def require_auto_gptq(test_case):
     """
     Decorator marking a test that requires auto-gptq. These tests are skipped when auto-gptq isn't installed.
     """
-    return unittest.skipUnless(is_auto_gptq_available(), "test requires auto-gptq")(test_case)
+    return unittest.skipUnless(is_auto_gptq_available(), "test requires auto-gptq")(
+        test_case
+    )
 
 
 def require_aqlm(test_case):
@@ -108,7 +107,9 @@ def require_auto_awq(test_case):
     """
     Decorator marking a test that requires auto-awq. These tests are skipped when auto-awq isn't installed.
     """
-    return unittest.skipUnless(is_auto_awq_available(), "test requires auto-awq")(test_case)
+    return unittest.skipUnless(is_auto_awq_available(), "test requires auto-awq")(
+        test_case
+    )
 
 
 def require_eetq(test_case):
@@ -122,7 +123,9 @@ def require_optimum(test_case):
     """
     Decorator marking a test that requires optimum. These tests are skipped when optimum isn't installed.
     """
-    return unittest.skipUnless(is_optimum_available(), "test requires optimum")(test_case)
+    return unittest.skipUnless(is_optimum_available(), "test requires optimum")(
+        test_case
+    )
 
 
 @contextmanager

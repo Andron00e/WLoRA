@@ -47,7 +47,9 @@ class VBLoRALayer(BaseTunerLayer):
             in_features, out_features = base_layer.in_features, base_layer.out_features
         elif isinstance(base_layer, Conv1D):
             in_features, out_features = (
-                base_layer.weight.ds_shape if hasattr(base_layer.weight, "ds_shape") else base_layer.weight.shape
+                base_layer.weight.ds_shape
+                if hasattr(base_layer.weight, "ds_shape")
+                else base_layer.weight.shape
             )
 
         self.in_features = in_features
@@ -75,7 +77,9 @@ class VBLoRALayer(BaseTunerLayer):
             raise ValueError(f"`topk` {topk} should be a positive integer value")
 
         if self.in_features % vector_length != 0:
-            raise ValueError(f"`in_features` {self.in_features} must be divisible by `vector_length` {vector_length}")
+            raise ValueError(
+                f"`in_features` {self.in_features} must be divisible by `vector_length` {vector_length}"
+            )
         if self.out_features % vector_length != 0:
             raise ValueError(
                 f"`out_features` {self.out_features} must be divisible by `vector_length` {vector_length}"
@@ -89,10 +93,12 @@ class VBLoRALayer(BaseTunerLayer):
             vblora_dropout_layer = nn.Identity()
         self.vblora_dropout.update(nn.ModuleDict({adapter_name: vblora_dropout_layer}))
         self.vblora_logits_A[adapter_name] = nn.Parameter(
-            torch.zeros(r, self.in_features // vector_length, num_vectors), requires_grad=True
+            torch.zeros(r, self.in_features // vector_length, num_vectors),
+            requires_grad=True,
         )
         self.vblora_logits_B[adapter_name] = nn.Parameter(
-            torch.zeros(self.out_features // vector_length, r, num_vectors), requires_grad=True
+            torch.zeros(self.out_features // vector_length, r, num_vectors),
+            requires_grad=True,
         )
         self.vblora_vector_bank = vblora_vector_bank
         self.reset_vblora_logits(adapter_name, init_logits_std)
@@ -129,11 +135,20 @@ class Linear(nn.Linear, VBLoRALayer):
         self.fan_in_fan_out = fan_in_fan_out
         self._active_adapter = adapter_name
         self.update_layer(
-            adapter_name, vblora_vector_bank, r, topk, num_vectors, vector_length, vblora_dropout, init_logits_std
+            adapter_name,
+            vblora_vector_bank,
+            r,
+            topk,
+            num_vectors,
+            vector_length,
+            vblora_dropout,
+            init_logits_std,
         )
         self.is_target_conv_1d_layer = is_target_conv_1d_layer
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+    ) -> None:
         """
         Merge the active adapter weights into the base weights
 
@@ -176,14 +191,20 @@ class Linear(nn.Linear, VBLoRALayer):
         while len(self.merged_adapters) > 0:
             active_adapter = self.merged_adapters.pop()
             if active_adapter in self.vblora_logits_A.keys():
-                self.get_base_layer().weight.data -= self.get_delta_weight(active_adapter)
+                self.get_base_layer().weight.data -= self.get_delta_weight(
+                    active_adapter
+                )
 
-    def _get_low_rank_matrix(self, logits: torch.tensor, vblora_vector_bank, topk) -> torch.Tensor:
+    def _get_low_rank_matrix(
+        self, logits: torch.tensor, vblora_vector_bank, topk
+    ) -> torch.Tensor:
         top_k_logits, indices = logits.topk(topk, dim=-1)
         topk_weights = F.softmax(top_k_logits, dim=-1)
         return (topk_weights.unsqueeze(-1) * vblora_vector_bank[indices]).sum(-2)
 
-    def _get_lora_matrices(self, adapter, cast_to_fp32=False) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _get_lora_matrices(
+        self, adapter, cast_to_fp32=False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         vblora_logits_A = self.vblora_logits_A[adapter]
         vblora_logits_B = self.vblora_logits_B[adapter]
 
@@ -204,7 +225,9 @@ class Linear(nn.Linear, VBLoRALayer):
             vblora_vector_bank = vblora_vector_bank.float()
 
         # A: (rank, in_tile, vector_length) -> (rank, in_tile x vector_length)
-        A = self._get_low_rank_matrix(vblora_logits_A, vblora_vector_bank, topk).reshape(vblora_logits_A.shape[0], -1)
+        A = self._get_low_rank_matrix(
+            vblora_logits_A, vblora_vector_bank, topk
+        ).reshape(vblora_logits_A.shape[0], -1)
         # B: (out_tile, rank, vector_length) -> (out_tile, vector_length, rank) -> (out_tile x vector_length, rank)
         B = (
             self._get_low_rank_matrix(vblora_logits_B, vblora_vector_bank, topk)

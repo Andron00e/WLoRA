@@ -9,13 +9,9 @@ from accelerate import Accelerator
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    default_data_collator,
-    get_linear_schedule_with_warmup,
-    set_seed,
-)
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          default_data_collator,
+                          get_linear_schedule_with_warmup, set_seed)
 
 from peft import LoraConfig, TaskType, get_peft_model
 
@@ -109,7 +105,13 @@ def main():
     accelerator = Accelerator()
     model_name_or_path = "bigscience/bloomz-7b1"
     dataset_name = "twitter_complaints"
-    peft_config = LoraConfig(task_type=TaskType.CAUSAL_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
+    peft_config = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,
+        inference_mode=False,
+        r=8,
+        lora_alpha=32,
+        lora_dropout=0.1,
+    )
     text_column = "Tweet text"
     label_column = "text_label"
     lr = 3e-3
@@ -135,7 +137,9 @@ def main():
         inputs = [f"{text_column} : {x} Label : " for x in examples[text_column]]
         targets = [str(x) for x in examples[label_column]]
         model_inputs = tokenizer(inputs)
-        labels = tokenizer(targets, add_special_tokens=False)  # don't add bos token because we concatenate with inputs
+        labels = tokenizer(
+            targets, add_special_tokens=False
+        )  # don't add bos token because we concatenate with inputs
         for i in range(batch_size):
             sample_input_ids = model_inputs["input_ids"][i]
             label_input_ids = labels["input_ids"][i] + [tokenizer.eos_token_id]
@@ -148,12 +152,18 @@ def main():
             model_inputs["input_ids"][i] = [tokenizer.pad_token_id] * (
                 max_length - len(sample_input_ids)
             ) + sample_input_ids
-            model_inputs["attention_mask"][i] = [0] * (max_length - len(sample_input_ids)) + model_inputs[
-                "attention_mask"
-            ][i]
-            labels["input_ids"][i] = [-100] * (max_length - len(sample_input_ids)) + label_input_ids
-            model_inputs["input_ids"][i] = torch.tensor(model_inputs["input_ids"][i][:max_length])
-            model_inputs["attention_mask"][i] = torch.tensor(model_inputs["attention_mask"][i][:max_length])
+            model_inputs["attention_mask"][i] = [0] * (
+                max_length - len(sample_input_ids)
+            ) + model_inputs["attention_mask"][i]
+            labels["input_ids"][i] = [-100] * (
+                max_length - len(sample_input_ids)
+            ) + label_input_ids
+            model_inputs["input_ids"][i] = torch.tensor(
+                model_inputs["input_ids"][i][:max_length]
+            )
+            model_inputs["attention_mask"][i] = torch.tensor(
+                model_inputs["attention_mask"][i][:max_length]
+            )
             labels["input_ids"][i] = torch.tensor(labels["input_ids"][i][:max_length])
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
@@ -168,11 +178,15 @@ def main():
             model_inputs["input_ids"][i] = [tokenizer.pad_token_id] * (
                 max_length - len(sample_input_ids)
             ) + sample_input_ids
-            model_inputs["attention_mask"][i] = [0] * (max_length - len(sample_input_ids)) + model_inputs[
-                "attention_mask"
-            ][i]
-            model_inputs["input_ids"][i] = torch.tensor(model_inputs["input_ids"][i][:max_length])
-            model_inputs["attention_mask"][i] = torch.tensor(model_inputs["attention_mask"][i][:max_length])
+            model_inputs["attention_mask"][i] = [0] * (
+                max_length - len(sample_input_ids)
+            ) + model_inputs["attention_mask"][i]
+            model_inputs["input_ids"][i] = torch.tensor(
+                model_inputs["input_ids"][i][:max_length]
+            )
+            model_inputs["attention_mask"][i] = torch.tensor(
+                model_inputs["attention_mask"][i][:max_length]
+            )
         return model_inputs
 
     with accelerator.main_process_first():
@@ -201,13 +215,23 @@ def main():
     test_dataset = processed_datasets["test"]
 
     train_dataloader = DataLoader(
-        train_dataset, shuffle=True, collate_fn=default_data_collator, batch_size=batch_size, pin_memory=True
+        train_dataset,
+        shuffle=True,
+        collate_fn=default_data_collator,
+        batch_size=batch_size,
+        pin_memory=True,
     )
     eval_dataloader = DataLoader(
-        eval_dataset, collate_fn=default_data_collator, batch_size=batch_size, pin_memory=True
+        eval_dataset,
+        collate_fn=default_data_collator,
+        batch_size=batch_size,
+        pin_memory=True,
     )
     test_dataloader = DataLoader(
-        test_dataset, collate_fn=default_data_collator, batch_size=batch_size, pin_memory=True
+        test_dataset,
+        collate_fn=default_data_collator,
+        batch_size=batch_size,
+        pin_memory=True,
     )
 
     print(next(iter(train_dataloader)))
@@ -227,8 +251,20 @@ def main():
         num_training_steps=(len(train_dataloader) * num_epochs),
     )
 
-    model, train_dataloader, eval_dataloader, test_dataloader, optimizer, lr_scheduler = accelerator.prepare(
-        model, train_dataloader, eval_dataloader, test_dataloader, optimizer, lr_scheduler
+    (
+        model,
+        train_dataloader,
+        eval_dataloader,
+        test_dataloader,
+        optimizer,
+        lr_scheduler,
+    ) = accelerator.prepare(
+        model,
+        train_dataloader,
+        eval_dataloader,
+        test_dataloader,
+        optimizer,
+        lr_scheduler,
     )
     accelerator.print(model)
 
@@ -249,16 +285,28 @@ def main():
                 lr_scheduler.step()
                 optimizer.zero_grad()
         # Printing the GPU memory usage details such as allocated memory, peak memory, and total memory usage
-        accelerator.print(f"GPU Memory before entering the train : {b2mb(tracemalloc.begin)}")
-        accelerator.print(f"GPU Memory consumed at the end of the train (end-begin): {tracemalloc.used}")
-        accelerator.print(f"GPU Peak Memory consumed during the train (max-begin): {tracemalloc.peaked}")
+        accelerator.print(
+            f"GPU Memory before entering the train : {b2mb(tracemalloc.begin)}"
+        )
+        accelerator.print(
+            f"GPU Memory consumed at the end of the train (end-begin): {tracemalloc.used}"
+        )
+        accelerator.print(
+            f"GPU Peak Memory consumed during the train (max-begin): {tracemalloc.peaked}"
+        )
         accelerator.print(
             f"GPU Total Peak Memory consumed during the train (max): {tracemalloc.peaked + b2mb(tracemalloc.begin)}"
         )
 
-        accelerator.print(f"CPU Memory before entering the train : {b2mb(tracemalloc.cpu_begin)}")
-        accelerator.print(f"CPU Memory consumed at the end of the train (end-begin): {tracemalloc.cpu_used}")
-        accelerator.print(f"CPU Peak Memory consumed during the train (max-begin): {tracemalloc.cpu_peaked}")
+        accelerator.print(
+            f"CPU Memory before entering the train : {b2mb(tracemalloc.cpu_begin)}"
+        )
+        accelerator.print(
+            f"CPU Memory consumed at the end of the train (end-begin): {tracemalloc.cpu_used}"
+        )
+        accelerator.print(
+            f"CPU Peak Memory consumed during the train (max-begin): {tracemalloc.cpu_peaked}"
+        )
         accelerator.print(
             f"CPU Total Peak Memory consumed during the train (max): {tracemalloc.cpu_peaked + b2mb(tracemalloc.cpu_begin)}"
         )
@@ -275,22 +323,38 @@ def main():
                     outputs = accelerator.unwrap_model(model).generate(
                         **batch, synced_gpus=is_ds_zero_3, max_new_tokens=10
                     )  # synced_gpus=True for DS-stage 3
-                outputs = accelerator.pad_across_processes(outputs, dim=1, pad_index=tokenizer.pad_token_id)
+                outputs = accelerator.pad_across_processes(
+                    outputs, dim=1, pad_index=tokenizer.pad_token_id
+                )
                 preds = accelerator.gather_for_metrics(outputs)
                 preds = preds[:, max_length:].detach().cpu().numpy()
-                eval_preds.extend(tokenizer.batch_decode(preds, skip_special_tokens=True))
+                eval_preds.extend(
+                    tokenizer.batch_decode(preds, skip_special_tokens=True)
+                )
 
         # Printing the GPU memory usage details such as allocated memory, peak memory, and total memory usage
-        accelerator.print(f"GPU Memory before entering the eval : {b2mb(tracemalloc.begin)}")
-        accelerator.print(f"GPU Memory consumed at the end of the eval (end-begin): {tracemalloc.used}")
-        accelerator.print(f"GPU Peak Memory consumed during the eval (max-begin): {tracemalloc.peaked}")
+        accelerator.print(
+            f"GPU Memory before entering the eval : {b2mb(tracemalloc.begin)}"
+        )
+        accelerator.print(
+            f"GPU Memory consumed at the end of the eval (end-begin): {tracemalloc.used}"
+        )
+        accelerator.print(
+            f"GPU Peak Memory consumed during the eval (max-begin): {tracemalloc.peaked}"
+        )
         accelerator.print(
             f"GPU Total Peak Memory consumed during the eval (max): {tracemalloc.peaked + b2mb(tracemalloc.begin)}"
         )
 
-        accelerator.print(f"CPU Memory before entering the eval : {b2mb(tracemalloc.cpu_begin)}")
-        accelerator.print(f"CPU Memory consumed at the end of the eval (end-begin): {tracemalloc.cpu_used}")
-        accelerator.print(f"CPU Peak Memory consumed during the eval (max-begin): {tracemalloc.cpu_peaked}")
+        accelerator.print(
+            f"CPU Memory before entering the eval : {b2mb(tracemalloc.cpu_begin)}"
+        )
+        accelerator.print(
+            f"CPU Memory consumed at the end of the eval (end-begin): {tracemalloc.cpu_used}"
+        )
+        accelerator.print(
+            f"CPU Peak Memory consumed during the eval (max-begin): {tracemalloc.cpu_peaked}"
+        )
         accelerator.print(
             f"CPU Total Peak Memory consumed during the eval (max): {tracemalloc.cpu_peaked + b2mb(tracemalloc.cpu_begin)}"
         )
@@ -318,7 +382,9 @@ def main():
                 outputs = accelerator.unwrap_model(model).generate(
                     **batch, synced_gpus=is_ds_zero_3, max_new_tokens=10
                 )  # synced_gpus=True for DS-stage 3
-            outputs = accelerator.pad_across_processes(outputs, dim=1, pad_index=tokenizer.pad_token_id)
+            outputs = accelerator.pad_across_processes(
+                outputs, dim=1, pad_index=tokenizer.pad_token_id
+            )
             preds = accelerator.gather(outputs)
             preds = preds[:, max_length:].detach().cpu().numpy()
             test_preds.extend(tokenizer.batch_decode(preds, skip_special_tokens=True))
@@ -328,7 +394,9 @@ def main():
             test_preds_cleaned.append(get_closest_label(pred, classes))
 
         test_df = dataset["test"].to_pandas()
-        assert len(test_preds_cleaned) == len(test_df), f"{len(test_preds_cleaned)} != {len(test_df)}"
+        assert len(test_preds_cleaned) == len(
+            test_df
+        ), f"{len(test_preds_cleaned)} != {len(test_df)}"
         test_df[label_column] = test_preds_cleaned
         test_df["text_labels_orig"] = test_preds
         accelerator.print(test_df[[text_column, label_column]].sample(20))

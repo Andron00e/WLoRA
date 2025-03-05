@@ -124,7 +124,9 @@ def _load_adapter_into_lora_model(
         lora_model.peft_config[adapter_name] = lora_peft_config
         lora_model.inject_adapter(lora_model.model, adapter_name)
 
-    adapter_weights = load_peft_weights(model_id, device=torch_device, subfolder=subfolder, **hf_hub_download_kwargs)
+    adapter_weights = load_peft_weights(
+        model_id, device=torch_device, subfolder=subfolder, **hf_hub_download_kwargs
+    )
     new_adapter_weights = {}
     # Rework the keys to contain the adapter numbers
     for old_key in adapter_weights.keys():
@@ -150,7 +152,9 @@ def _load_adapter_into_lora_model(
         )
 
     if hasattr(lora_model, "_cast_adapter_dtype"):
-        lora_model._cast_adapter_dtype(adapter_name=adapter_name, autocast_adapter_dtype=autocast_adapter_dtype)
+        lora_model._cast_adapter_dtype(
+            adapter_name=adapter_name, autocast_adapter_dtype=autocast_adapter_dtype
+        )
 
 
 class XLoraModel(BaseTuner):
@@ -258,7 +262,9 @@ class XLoraModel(BaseTuner):
 
         adapters_items = peft_config.adapters.items()
         if hasattr(self.xlora_config, "_subfolders"):
-            adapters_items = zip(peft_config.adapters.items(), self.xlora_config._subfolders)
+            adapters_items = zip(
+                peft_config.adapters.items(), self.xlora_config._subfolders
+            )
         else:
             adapters_items = peft_config.adapters.items()
 
@@ -298,7 +304,9 @@ class XLoraModel(BaseTuner):
         )
 
         n_classes = len(peft_config.adapters)
-        xlora_classifier = XLoraClassifier(model, peft_config, n_classes, total_swapped, device)
+        xlora_classifier = XLoraClassifier(
+            model, peft_config, n_classes, total_swapped, device
+        )
 
         # Setup the model internal state
         self.internal_xlora_classifier = xlora_classifier
@@ -337,13 +345,19 @@ class XLoraModel(BaseTuner):
             kwargs_real = args[1]
             kwargs_real.update(kwargs)
 
-            dummy_scalings = self.internal_xlora_classifier.make_dummy_scalings(*args_real, **kwargs_real)
+            dummy_scalings = self.internal_xlora_classifier.make_dummy_scalings(
+                *args_real, **kwargs_real
+            )
 
             hook_handles = []
             for module in self.modules():
                 if isinstance(module, LoraLayer):
-                    pre_forward = partial(scalings_injection_hook, scalings=dummy_scalings)
-                    handle = module.register_forward_pre_hook(pre_forward, with_kwargs=True)
+                    pre_forward = partial(
+                        scalings_injection_hook, scalings=dummy_scalings
+                    )
+                    handle = module.register_forward_pre_hook(
+                        pre_forward, with_kwargs=True
+                    )
                     hook_handles.append(handle)
 
             with torch.no_grad():
@@ -354,7 +368,9 @@ class XLoraModel(BaseTuner):
                     scaling_pass_kwargs["output_hidden_states"] = True
                     scaling_pass_kwargs["return_dict"] = True
                     try:
-                        base_output = self.lora_model.model.forward(*args_real, **scaling_pass_kwargs)
+                        base_output = self.lora_model.model.forward(
+                            *args_real, **scaling_pass_kwargs
+                        )
                     finally:
                         # Clean everything up
                         for handle in hook_handles:
@@ -362,21 +378,29 @@ class XLoraModel(BaseTuner):
                 finally:
                     self.lora_model.enable_adapter_layers()
 
-            xlora_scalings = self.internal_xlora_classifier(result=base_output, *args_real, **kwargs_real)
+            xlora_scalings = self.internal_xlora_classifier(
+                result=base_output, *args_real, **kwargs_real
+            )
 
             # =========================== Real forward pass with calculated scalings ==================
 
             hook_handles = []
             for module in self.modules():
                 if isinstance(module, LoraLayer):
-                    pre_forward = partial(scalings_injection_hook, scalings=xlora_scalings)
-                    handle = module.register_forward_pre_hook(pre_forward, with_kwargs=True)
+                    pre_forward = partial(
+                        scalings_injection_hook, scalings=xlora_scalings
+                    )
+                    handle = module.register_forward_pre_hook(
+                        pre_forward, with_kwargs=True
+                    )
                     hook_handles.append(handle)
 
             handles_to_remove = hook_handles
 
         if not self.disabled:
-            forward_handle = self.lora_model.model.register_forward_pre_hook(pre_forward, with_kwargs=True)
+            forward_handle = self.lora_model.model.register_forward_pre_hook(
+                pre_forward, with_kwargs=True
+            )
 
         # Run the forward pass: first the scaling pass in the hook, and then with the base model
         yield
@@ -392,7 +416,9 @@ class XLoraModel(BaseTuner):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "lora_model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "lora_model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.lora_model, name)
 
@@ -509,7 +535,9 @@ class XLoraModel(BaseTuner):
         classifier: XLoraClassifier = self.internal_xlora_classifier  # type: ignore
         classifier.log_scalings.clear()
 
-    def get_bucketed_scalings_log(self) -> dict[int, tuple[list[int], list[torch.Tensor]]]:
+    def get_bucketed_scalings_log(
+        self,
+    ) -> dict[int, tuple[list[int], list[torch.Tensor]]]:
         """
         Returns bucketed scalings, bucketed by seq_len. Each value consists of the positions (the first) and the
         associated tensors. The positions are paired with the associated tensors and give the position in the scaling

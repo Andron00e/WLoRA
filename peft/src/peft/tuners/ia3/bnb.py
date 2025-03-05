@@ -20,7 +20,6 @@ from peft.import_utils import is_bnb_4bit_available, is_bnb_available
 
 from .layer import IA3Layer
 
-
 if is_bnb_available():
 
     class Linear8bitLt(torch.nn.Module, IA3Layer):
@@ -52,7 +51,9 @@ if is_bnb_available():
                     continue
                 ia3_scaling *= self.ia3_l[active_adapter].flatten()
 
-            requires_conversion = (not torch.is_autocast_enabled()) and (x.dtype != torch.float32)
+            requires_conversion = (not torch.is_autocast_enabled()) and (
+                x.dtype != torch.float32
+            )
             if requires_conversion:
                 x = x.float()
             if self.is_feedforward:
@@ -104,7 +105,9 @@ if is_bnb_4bit_available():
                     continue
                 ia3_scaling *= self.ia3_l[active_adapter].flatten()
 
-            requires_conversion = (not torch.is_autocast_enabled()) and (x.dtype != torch.float32)
+            requires_conversion = (not torch.is_autocast_enabled()) and (
+                x.dtype != torch.float32
+            )
             if requires_conversion:
                 x = x.float()
             if self.is_feedforward:

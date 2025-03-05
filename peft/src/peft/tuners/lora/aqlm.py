@@ -20,7 +20,6 @@ from peft.import_utils import is_aqlm_available
 from peft.tuners.lora.layer import LoraLayer
 from peft.tuners.tuners_utils import BaseTunerLayer
 
-
 if is_aqlm_available():
     from aqlm import QuantizedLinear
 
@@ -41,7 +40,9 @@ class AqlmLoraLinear(torch.nn.Module, LoraLayer):
         LoraLayer.__init__(self, base_layer)
 
         self._active_adapter = adapter_name
-        self.update_layer(adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora)
+        self.update_layer(
+            adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora
+        )
 
     def forward(self, x: torch.Tensor):
         # note: logic differs from default Linear because merging is not supported

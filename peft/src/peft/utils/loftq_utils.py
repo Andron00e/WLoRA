@@ -33,7 +33,9 @@ from peft.import_utils import is_bnb_4bit_available, is_bnb_available
 
 
 class NFQuantizer:
-    def __init__(self, num_bits=2, device="cuda", method="normal", block_size=64, *args, **kwargs):
+    def __init__(
+        self, num_bits=2, device="cuda", method="normal", block_size=64, *args, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.num_bits = num_bits
         self.device = device
@@ -65,7 +67,9 @@ class NFQuantizer:
         try:
             from scipy.stats import norm
         except ImportError:
-            raise ImportError("The required package 'scipy' is not installed. Please install it to continue.")
+            raise ImportError(
+                "The required package 'scipy' is not installed. Please install it to continue."
+            )
 
         variations = 2**num_bits
         if symmetric:
@@ -76,7 +80,9 @@ class NFQuantizer:
             v = values
         else:
             # one more positive value, this is an asymmetric type
-            v1 = norm.ppf(torch.linspace(offset, 0.5, variations // 2 + 1)[:-1]).tolist()
+            v1 = norm.ppf(
+                torch.linspace(offset, 0.5, variations // 2 + 1)[:-1]
+            ).tolist()
             v2 = [0]
             v3 = (-norm.ppf(torch.linspace(offset, 0.5, variations // 2)[:-1])).tolist()
             v = v1 + v2 + v3
@@ -114,7 +120,9 @@ class NFQuantizer:
 
     def quantize_block(self, weight):
         if len(weight.shape) != 2:
-            raise ValueError(f"Only support 2D matrix, but your input has {len(weight.shape)} dimensions.")
+            raise ValueError(
+                f"Only support 2D matrix, but your input has {len(weight.shape)} dimensions."
+            )
         if weight.shape[0] * weight.shape[1] % self.block_size != 0:
             raise ValueError(
                 f"Weight with shape ({weight.shape[0]} x {weight.shape[1]}) "
@@ -126,7 +134,9 @@ class NFQuantizer:
 
         # Quantization
         weight_flatten = weight.flatten()  # (M*N, )
-        weight_block = weight_flatten.reshape(-1, self.block_size)  # (L, B), L = M * N / B
+        weight_block = weight_flatten.reshape(
+            -1, self.block_size
+        )  # (L, B), L = M * N / B
         if self.method == "normal":
             weight_max = weight_block.abs().max(dim=-1)[0]  # (L, 1)
         elif self.method == "uniform":
@@ -143,7 +153,9 @@ class NFQuantizer:
 
         # Pack multiple k-bit into uint8
         qweight = qweight.reshape(-1, 8 // self.num_bits)
-        qweight_pack = torch.zeros((M * N // 8 * self.num_bits, 1), dtype=torch.uint8, device=device)
+        qweight_pack = torch.zeros(
+            (M * N // 8 * self.num_bits, 1), dtype=torch.uint8, device=device
+        )
 
         # data format example:
         # [1, 0, 3, 2] or [01, 00, 11, 10]  -> [10110001], LIFO
@@ -156,12 +168,18 @@ class NFQuantizer:
     def dequantize_block(self, qweight, weight_max, weight_shape):
         # unpack weight
         device = qweight.device
-        weight = torch.zeros((qweight.shape[0], 8 // self.num_bits), dtype=torch.float32, device=device)
+        weight = torch.zeros(
+            (qweight.shape[0], 8 // self.num_bits), dtype=torch.float32, device=device
+        )
         for i in range(8 // self.num_bits):
-            lookup_table_idx = qweight.to(torch.long) % 2**self.num_bits  # get the most right 2 bits
+            lookup_table_idx = (
+                qweight.to(torch.long) % 2**self.num_bits
+            )  # get the most right 2 bits
             lookup_table_idx = lookup_table_idx.to(torch.long)
             weight[:, i] = self.norm_lookup_table[lookup_table_idx].squeeze()
-            qweight = qweight >> self.num_bits  # right shift 2 bits of the original data
+            qweight = (
+                qweight >> self.num_bits
+            )  # right shift 2 bits of the original data
 
         weight_block = weight.reshape(-1, self.block_size)
         weight = weight_block * weight_max
@@ -176,7 +194,9 @@ def _low_rank_decomposition(weight, reduced_rank=32):
     """
     matrix_dimension = len(weight.size())
     if matrix_dimension != 2:
-        raise ValueError(f"Only support 2D matrix, but your input has {matrix_dimension} dimensions.")
+        raise ValueError(
+            f"Only support 2D matrix, but your input has {matrix_dimension} dimensions."
+        )
 
     # Use SVD to decompose a matrix, default full_matrices is False to save parameters
     U, S, Vh = torch.linalg.svd(weight, full_matrices=False)
@@ -188,11 +208,18 @@ def _low_rank_decomposition(weight, reduced_rank=32):
 
 
 @torch.no_grad()
-def loftq_init(weight: Union[torch.Tensor, torch.nn.Parameter], num_bits: int, reduced_rank: int, num_iter=1):
+def loftq_init(
+    weight: Union[torch.Tensor, torch.nn.Parameter],
+    num_bits: int,
+    reduced_rank: int,
+    num_iter=1,
+):
     if is_bnb_available():
         import bitsandbytes as bnb
     else:
-        raise ValueError("bitsandbytes is not available, please install it to use LoftQ.")
+        raise ValueError(
+            "bitsandbytes is not available, please install it to use LoftQ."
+        )
 
     if num_bits not in [2, 4, 8]:
         raise ValueError("Only support 2, 4, 8 bits quantization")
@@ -208,7 +235,9 @@ def loftq_init(weight: Union[torch.Tensor, torch.nn.Parameter], num_bits: int, r
         f"| Num Iter: {num_iter} | Num Bits: {num_bits}"
     )
     if not is_bnb_4bit_available() or num_bits in [2, 8]:
-        quantizer = NFQuantizer(num_bits=num_bits, device=device, method="normal", block_size=64)
+        quantizer = NFQuantizer(
+            num_bits=num_bits, device=device, method="normal", block_size=64
+        )
         compute_device = device
     else:
         compute_device = "cuda"
@@ -220,12 +249,19 @@ def loftq_init(weight: Union[torch.Tensor, torch.nn.Parameter], num_bits: int, r
         # Quantization
         if num_bits == 4 and is_bnb_4bit_available():
             qweight = bnb.nn.Params4bit(
-                res.to("cpu"), requires_grad=False, compress_statistics=False, quant_type="nf4"
+                res.to("cpu"),
+                requires_grad=False,
+                compress_statistics=False,
+                quant_type="nf4",
             ).to(compute_device)
-            dequantized_weight = bnb.functional.dequantize_4bit(qweight.data, qweight.quant_state)
+            dequantized_weight = bnb.functional.dequantize_4bit(
+                qweight.data, qweight.quant_state
+            )
         else:
             quantized_weight, max_abs, shape = quantizer.quantize_block(res)
-            dequantized_weight = quantizer.dequantize_block(quantized_weight, max_abs, shape)
+            dequantized_weight = quantizer.dequantize_block(
+                quantized_weight, max_abs, shape
+            )
 
         res = weight - dequantized_weight
 
@@ -249,7 +285,9 @@ def _loftq_init_new(qweight, weight, num_bits: int, reduced_rank: int):
         raise ValueError("bitsandbytes 4bit quantization is not available.")
 
     compute_device = "cuda"
-    dequantized_weight = bnb.functional.dequantize_4bit(qweight.data, qweight.quant_state)
+    dequantized_weight = bnb.functional.dequantize_4bit(
+        qweight.data, qweight.quant_state
+    )
 
     weight = weight.to(device=compute_device, dtype=torch.float32)
     residual = weight - dequantized_weight
@@ -271,7 +309,9 @@ class _SafetensorLoader:
     def __init__(self, peft_model, model_path):
         if model_path is None:
             try:
-                model_path = snapshot_download(peft_model.base_model.config._name_or_path, local_files_only=True)
+                model_path = snapshot_download(
+                    peft_model.base_model.config._name_or_path, local_files_only=True
+                )
             except (AttributeError, HFValidationError) as exc:
                 raise ValueError(
                     "The provided model does not appear to be a transformers model or is a local model. In this case, "
@@ -287,7 +327,9 @@ class _SafetensorLoader:
             model_path = os.path.join(model_path, suffix)
 
         self.model_path = model_path
-        self.base_model_prefix = getattr(peft_model.get_base_model(), "base_model_prefix", None)
+        self.base_model_prefix = getattr(
+            peft_model.get_base_model(), "base_model_prefix", None
+        )
         self.prefix = "base_model.model."
         self.is_sharded = False
         self.weight_map = None
@@ -307,7 +349,9 @@ class _SafetensorLoader:
             self.is_sharded = True
             # maps from 'model-X-of-Y.safetensors' to full file path
             file_map = {k.rpartition(os.path.sep)[-1]: k for k in resolved_archive_file}
-            self.weight_map = {k: file_map[v] for k, v in sharded_metadata["weight_map"].items()}
+            self.weight_map = {
+                k: file_map[v] for k, v in sharded_metadata["weight_map"].items()
+            }
 
     def get_tensor(self, name):
         if not self.is_sharded:
@@ -366,7 +410,9 @@ def replace_lora_weights_loftq(
             yields incremental improvements.
     """
     if not is_bnb_4bit_available():
-        raise ValueError("bitsandbytes must be installed and the model must be quantized in 4bits.")
+        raise ValueError(
+            "bitsandbytes must be installed and the model must be quantized in 4bits."
+        )
 
     from peft.tuners.lora import Linear4bit
 
@@ -388,7 +434,9 @@ def replace_lora_weights_loftq(
         tensor = safetensor_loader.get_tensor(name + ".weight")
 
         reduced_rank = module.r[adapter_name]
-        lora_A, lora_B = _loftq_init_new(module.weight, tensor, num_bits=4, reduced_rank=reduced_rank)
+        lora_A, lora_B = _loftq_init_new(
+            module.weight, tensor, num_bits=4, reduced_rank=reduced_rank
+        )
         if not callback:
             module.lora_A[adapter_name].weight.data = lora_A
             module.lora_B[adapter_name].weight.data = lora_B

@@ -49,7 +49,9 @@ class XLoraLayer:
     """
 
     @staticmethod
-    def apply_scalings_to_x(x: torch.Tensor, scalings_layer: torch.Tensor, adapter: int) -> torch.Tensor:
+    def apply_scalings_to_x(
+        x: torch.Tensor, scalings_layer: torch.Tensor, adapter: int
+    ) -> torch.Tensor:
         # scalings_layer = [batch_size, seq_len, n_classes]
         scalings = scalings_layer[:, :, adapter].unsqueeze(-1)
         # scalings_layer = [batch_size, seq_len, 1]
@@ -65,7 +67,9 @@ class XLoraLayer:
         xlora_scalings: Tensor = scalings[:, :, self.layer_number, :]  # type: ignore
 
         if self.config.top_k_lora is not None:
-            _, topk_indices = torch.topk(xlora_scalings, k=self.config.top_k_lora, dim=-1)
+            _, topk_indices = torch.topk(
+                xlora_scalings, k=self.config.top_k_lora, dim=-1
+            )
 
             # Mask the topk to True, the rest to False
             mask = torch.zeros_like(xlora_scalings, dtype=torch.bool)
@@ -92,7 +96,9 @@ class XLoraLinearLayer(XLoraLayer):
     ) -> None:
         super().__init__(model, target, target_forward, layer_number, config)
 
-    def forward(self, x: Tensor, *args: Any, scalings: Optional[Tensor] = None, **kwargs: Any) -> Tensor:
+    def forward(
+        self, x: Tensor, *args: Any, scalings: Optional[Tensor] = None, **kwargs: Any
+    ) -> Tensor:
         """
         This method is designed to be a drop-in-replacement for the LoRA layers' .forward method. To use it, a bound
         method must be created (bound to an instance of the XLoraLayer class).
@@ -109,7 +115,9 @@ class XLoraLinearLayer(XLoraLayer):
             for adapter_n, active_adapter in enumerate(self.target.active_adapters):
                 # TODO: implement X-LoRA with Lora+Dora layers
                 if self.target.use_dora[active_adapter]:
-                    raise ValueError("X-LoRA currently does not support LoRA layers with DoRA")
+                    raise ValueError(
+                        "X-LoRA currently does not support LoRA layers with DoRA"
+                    )
                 if active_adapter not in self.target.lora_A.keys():
                     continue
                 lora_A = self.target.lora_A[active_adapter]
@@ -140,7 +148,9 @@ class XLoraEmbeddingLayer(XLoraLayer):
     ) -> None:
         super().__init__(model, target, target_forward, layer_number, config)
 
-    def forward(self, x: Tensor, *args: Any, scalings: Optional[Tensor] = None, **kwargs: Any) -> Tensor:
+    def forward(
+        self, x: Tensor, *args: Any, scalings: Optional[Tensor] = None, **kwargs: Any
+    ) -> Tensor:
         """
         This method is designed to be a drop-in-replacement for the LoRA layers' .forward method. To use it, a bound
         method must be created (bound to an instance of the XLoraLayer class).
@@ -156,7 +166,9 @@ class XLoraEmbeddingLayer(XLoraLayer):
             for adapter_n, active_adapter in enumerate(self.target.active_adapters):
                 # TODO: implement X-LoRA with Lora+Dora layers
                 if self.target.use_dora.get(active_adapter, False):
-                    raise ValueError("X-LoRA currently does not support LoRA layers with DoRA")
+                    raise ValueError(
+                        "X-LoRA currently does not support LoRA layers with DoRA"
+                    )
                 if active_adapter not in self.target.lora_embedding_A:
                     continue
                 embedding_A = self.target.lora_embedding_A[active_adapter].T
@@ -164,7 +176,9 @@ class XLoraEmbeddingLayer(XLoraLayer):
                 scaling = self.target.scaling[active_adapter]
                 after_A = self.target._embed(x, embedding_A)  # type: ignore
                 if scalings is not None:
-                    after_A_mod = self.apply_scalings_to_x(after_A, xlora_scalings, adapter_n)
+                    after_A_mod = self.apply_scalings_to_x(
+                        after_A, xlora_scalings, adapter_n
+                    )
                     scaling_weight = self.config.global_scaling_weight
                 else:
                     after_A_mod = after_A
@@ -185,7 +199,9 @@ class XLoraConv2dLayer(XLoraLayer):
     ) -> None:
         super().__init__(model, target, target_forward, layer_number, config)
 
-    def forward(self, x: Tensor, *args: Any, scalings: Optional[Tensor] = None, **kwargs: Any) -> Tensor:
+    def forward(
+        self, x: Tensor, *args: Any, scalings: Optional[Tensor] = None, **kwargs: Any
+    ) -> Tensor:
         """
         This method is designed to be a drop-in-replacement for the LoRA layers' .forward method. To use it, a bound
         method must be created (bound to an instance of the XLoraLayer class).
@@ -203,7 +219,9 @@ class XLoraConv2dLayer(XLoraLayer):
             for adapter_n, active_adapter in enumerate(self.target.active_adapters):
                 # TODO: implement X-LoRA with Lora+Dora layers
                 if self.target.use_dora[active_adapter]:
-                    raise ValueError("X-LoRA currently does not support LoRA layers with DoRA")
+                    raise ValueError(
+                        "X-LoRA currently does not support LoRA layers with DoRA"
+                    )
                 if active_adapter not in self.target.lora_A.keys():
                     continue
                 lora_A = self.target.lora_A[active_adapter]

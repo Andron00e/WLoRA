@@ -20,7 +20,6 @@ from peft.import_utils import is_bnb_4bit_available, is_bnb_available
 
 from .layer import AdaLoraLayer
 
-
 if is_bnb_available():
 
     class SVDLinear8bitLt(torch.nn.Module, AdaLoraLayer):
@@ -41,7 +40,9 @@ if is_bnb_available():
             self.get_base_layer().weight.requires_grad = False
 
             self._active_adapter = adapter_name
-            self.update_layer(adapter_name, r, lora_alpha, lora_dropout, init_lora_weights)
+            self.update_layer(
+                adapter_name, r, lora_alpha, lora_dropout, init_lora_weights
+            )
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             # note: no check for self.merged because merging is not supported (yet)
@@ -99,7 +100,9 @@ if is_bnb_4bit_available():
             self.get_base_layer().weight.requires_grad = False
 
             self._active_adapter = adapter_name
-            self.update_layer(adapter_name, r, lora_alpha, lora_dropout, init_lora_weights)
+            self.update_layer(
+                adapter_name, r, lora_alpha, lora_dropout, init_lora_weights
+            )
 
         def forward(self, x: torch.Tensor, *args: Any, **kwargs: Any) -> torch.Tensor:
             # note: no check for self.merged because merging is not supported (yet)

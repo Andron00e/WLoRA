@@ -64,21 +64,10 @@ from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 from transformers.pytorch_utils import Conv1D
 
 import peft
-from peft import (
-    AdaLoraConfig,
-    BOFTConfig,
-    IA3Config,
-    LNTuningConfig,
-    LoHaConfig,
-    LoKrConfig,
-    LoraConfig,
-    PeftModel,
-    VBLoRAConfig,
-    VeraConfig,
-    get_peft_model,
-)
+from peft import (AdaLoraConfig, BOFTConfig, IA3Config, LNTuningConfig,
+                  LoHaConfig, LoKrConfig, LoraConfig, PeftModel, VBLoRAConfig,
+                  VeraConfig, get_peft_model)
 from peft.utils import infer_device
-
 
 PEFT_VERSION = peft.__version__
 REGRESSION_DIR = tempfile.mkdtemp(prefix="peft_regression_")
@@ -204,14 +193,20 @@ class RegressionTester(unittest.TestCase):
 
     def setUp(self):
         self.tol = 1e-4
-        self.creation_mode = strtobool(os.environ.get("REGRESSION_CREATION_MODE", "False"))
+        self.creation_mode = strtobool(
+            os.environ.get("REGRESSION_CREATION_MODE", "False")
+        )
         self.force_mode = strtobool(os.environ.get("REGRESSION_FORCE_MODE", "False"))
         if self.force_mode and not self.creation_mode:
-            raise RuntimeError("REGRESSION_FORCE_MODE can only be used together with REGRESSION_CREATION_MODE")
+            raise RuntimeError(
+                "REGRESSION_FORCE_MODE can only be used together with REGRESSION_CREATION_MODE"
+            )
         if self.creation_mode:
             self.check_clean_git_status(self.force_mode)
             if HF_TOKEN is None:
-                raise RuntimeError("HF_TOKEN environment variable must be set in creation mode")
+                raise RuntimeError(
+                    "HF_TOKEN environment variable must be set in creation mode"
+                )
 
     def fix_seed(self):
         torch.manual_seed(0)
@@ -551,7 +546,9 @@ class TestOpt(RegressionTester):
 
     def load_base_model(self):
         self.fix_seed()
-        return AutoModelForCausalLM.from_pretrained("facebook/opt-350m").to(self.torch_device)
+        return AutoModelForCausalLM.from_pretrained("facebook/opt-350m").to(
+            self.torch_device
+        )
 
     def test_lora(self):
         base_model = self.load_base_model()

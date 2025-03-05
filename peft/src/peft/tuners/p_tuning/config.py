@@ -38,9 +38,11 @@ class PromptEncoderConfig(PromptLearningConfig):
         encoder_dropout (`float`): The dropout probability of the prompt encoder.
     """
 
-    encoder_reparameterization_type: Union[str, PromptEncoderReparameterizationType] = field(
-        default=PromptEncoderReparameterizationType.MLP,
-        metadata={"help": "How to reparameterize the prompt encoder"},
+    encoder_reparameterization_type: Union[str, PromptEncoderReparameterizationType] = (
+        field(
+            default=PromptEncoderReparameterizationType.MLP,
+            metadata={"help": "How to reparameterize the prompt encoder"},
+        )
     )
     encoder_hidden_size: int = field(
         default=None,

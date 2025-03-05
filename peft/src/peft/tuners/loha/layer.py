@@ -24,7 +24,14 @@ from peft.tuners.lycoris_utils import LycorisLayer
 
 class LoHaLayer(nn.Module, LycorisLayer):
     # All names of layers that may contain adapter weights
-    adapter_layer_names = ("hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b", "hada_t1", "hada_t2")
+    adapter_layer_names = (
+        "hada_w1_a",
+        "hada_w1_b",
+        "hada_w2_a",
+        "hada_w2_b",
+        "hada_t1",
+        "hada_t2",
+    )
     # other_param_names is defined on parent class
 
     def __init__(self, base_layer: nn.Module):
@@ -41,18 +48,39 @@ class LoHaLayer(nn.Module, LycorisLayer):
 
     @property
     def _available_adapters(self) -> Set[str]:
-        return {*self.hada_w1_a, *self.hada_w1_b, *self.hada_w2_a, *self.hada_w2_b, *self.hada_t1, *self.hada_t2}
+        return {
+            *self.hada_w1_a,
+            *self.hada_w1_b,
+            *self.hada_w2_a,
+            *self.hada_w2_b,
+            *self.hada_t1,
+            *self.hada_t2,
+        }
 
-    def create_adapter_parameters(self, adapter_name: str, r: int, shape: Tuple[int, ...]):
+    def create_adapter_parameters(
+        self, adapter_name: str, r: int, shape: Tuple[int, ...]
+    ):
         # https://github.com/KohakuBlueleaf/LyCORIS/blob/eb460098187f752a5d66406d3affade6f0a07ece/lycoris/modules/loha.py#L130C9-L143C75
         if len(shape) == 4:
-            self.hada_t1[adapter_name] = nn.Parameter(torch.empty(r, r, shape[2], shape[3]))
-            self.hada_w1_a[adapter_name] = nn.Parameter(torch.empty(r, shape[0]))  # out_dim, 1-mode
-            self.hada_w1_b[adapter_name] = nn.Parameter(torch.empty(r, shape[1]))  # in_dim , 2-mode
+            self.hada_t1[adapter_name] = nn.Parameter(
+                torch.empty(r, r, shape[2], shape[3])
+            )
+            self.hada_w1_a[adapter_name] = nn.Parameter(
+                torch.empty(r, shape[0])
+            )  # out_dim, 1-mode
+            self.hada_w1_b[adapter_name] = nn.Parameter(
+                torch.empty(r, shape[1])
+            )  # in_dim , 2-mode
 
-            self.hada_t2[adapter_name] = nn.Parameter(torch.empty(r, r, shape[2], shape[3]))
-            self.hada_w2_a[adapter_name] = nn.Parameter(torch.empty(r, shape[0]))  # out_dim, 1-mode
-            self.hada_w2_b[adapter_name] = nn.Parameter(torch.empty(r, shape[1]))  # in_dim , 2-mode
+            self.hada_t2[adapter_name] = nn.Parameter(
+                torch.empty(r, r, shape[2], shape[3])
+            )
+            self.hada_w2_a[adapter_name] = nn.Parameter(
+                torch.empty(r, shape[0])
+            )  # out_dim, 1-mode
+            self.hada_w2_b[adapter_name] = nn.Parameter(
+                torch.empty(r, shape[1])
+            )  # in_dim , 2-mode
         else:
             self.hada_w1_a[adapter_name] = nn.Parameter(torch.empty(shape[0], r))
             self.hada_w1_b[adapter_name] = nn.Parameter(torch.empty(r, shape[1]))
@@ -114,7 +142,9 @@ class LoHaLayer(nn.Module, LycorisLayer):
                 Use parameter effective decomposition for Conv2d with ksize > 1.
         """
         if r <= 0:
-            raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
+            raise ValueError(
+                f"`r` should be a positive integer value but the value passed is {r}"
+            )
 
         self.r[adapter_name] = r
         self.lora_alpha[adapter_name] = lora_alpha
@@ -127,16 +157,27 @@ class LoHaLayer(nn.Module, LycorisLayer):
         if isinstance(base_layer, nn.Linear):
             shape = tuple(base_layer.weight.shape)
         elif isinstance(base_layer, nn.Conv2d):
-            use_effective_conv2d = use_effective_conv2d and base_layer.kernel_size != (1, 1)
+            use_effective_conv2d = use_effective_conv2d and base_layer.kernel_size != (
+                1,
+                1,
+            )
             if use_effective_conv2d:
-                shape = (base_layer.out_channels, base_layer.in_channels, *base_layer.kernel_size)
+                shape = (
+                    base_layer.out_channels,
+                    base_layer.in_channels,
+                    *base_layer.kernel_size,
+                )
             else:
                 shape = (
                     base_layer.out_channels,
-                    base_layer.in_channels * base_layer.kernel_size[0] * base_layer.kernel_size[1],
+                    base_layer.in_channels
+                    * base_layer.kernel_size[0]
+                    * base_layer.kernel_size[1],
                 )
         else:
-            raise TypeError(f"LoHa is not implemented for base layers of type {type(base_layer).__name__}")
+            raise TypeError(
+                f"LoHa is not implemented for base layers of type {type(base_layer).__name__}"
+            )
 
         # Create weights with provided shape
         self.create_adapter_parameters(adapter_name, r, shape)
@@ -208,8 +249,12 @@ class LoHaLayer(nn.Module, LycorisLayer):
                 module_dropout = self.module_dropout[active_adapter]
 
                 # Modify current execution weights
-                if (not self.training) or (self.training and torch.rand(1) > module_dropout):
-                    result = result + self._get_delta_activations(active_adapter, x, *args, **kwargs)
+                if (not self.training) or (
+                    self.training and torch.rand(1) > module_dropout
+                ):
+                    result = result + self._get_delta_activations(
+                        active_adapter, x, *args, **kwargs
+                    )
 
         result = result.to(previous_dtype)
         return result
@@ -233,7 +278,15 @@ class Linear(LoHaLayer):
 
         # Create adapter and set it active
         self._active_adapter = adapter_name
-        self.update_layer(adapter_name, r, lora_alpha, rank_dropout, module_dropout, init_weights, **kwargs)
+        self.update_layer(
+            adapter_name,
+            r,
+            lora_alpha,
+            rank_dropout,
+            module_dropout,
+            init_weights,
+            **kwargs,
+        )
 
     def _get_delta_activations(
         self, adapter_name: str, input: torch.Tensor, *args: Any, **kwargs: Any
@@ -267,7 +320,14 @@ class Conv2d(LoHaLayer):
         # Create adapter and set it active
         self._active_adapter = adapter_name
         self.update_layer(
-            adapter_name, r, lora_alpha, rank_dropout, module_dropout, init_weights, use_effective_conv2d, **kwargs
+            adapter_name,
+            r,
+            lora_alpha,
+            rank_dropout,
+            module_dropout,
+            init_weights,
+            use_effective_conv2d,
+            **kwargs,
         )
 
     def _get_delta_activations(

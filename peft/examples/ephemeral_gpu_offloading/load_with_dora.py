@@ -49,17 +49,30 @@ from peft import PeftModel
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Load a model with DoRA using ephemeral GPU offloading")
-    parser.add_argument("--model", type=str, default="NousResearch/Hermes-2-Pro-Mistral-7B", help="Model to load")
+    parser = argparse.ArgumentParser(
+        description="Load a model with DoRA using ephemeral GPU offloading"
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="NousResearch/Hermes-2-Pro-Mistral-7B",
+        help="Model to load",
+    )
     parser.add_argument(
         "--dora",
         type=str,
         default="peft-internal-testing/DoRA-Hermes-2-Pro-Mistral-7B",
         help="DoRA to use",
     )
-    parser.add_argument("--ephemeral_gpu_offload", action="store_true", help="Use ephemeral GPU offloading")
     parser.add_argument(
-        "--merge_model_path", type="str", help="Merge the model with the DoRA model and save to the given path"
+        "--ephemeral_gpu_offload",
+        action="store_true",
+        help="Use ephemeral GPU offloading",
+    )
+    parser.add_argument(
+        "--merge_model_path",
+        type="str",
+        help="Merge the model with the DoRA model and save to the given path",
     )
     args = parser.parse_args()
 
