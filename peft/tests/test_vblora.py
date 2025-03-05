@@ -54,20 +54,34 @@ class TestVBLoRA:
         vector_length = 2
         num_vectors = 10
         config = VBLoRAConfig(
-            target_modules=["lin0", "lin1", "lin3"], vector_length=vector_length, num_vectors=num_vectors
+            target_modules=["lin0", "lin1", "lin3"],
+            vector_length=vector_length,
+            num_vectors=num_vectors,
         )
         mlp_vblora = get_peft_model(mlp, config)
 
         vector_bank = mlp_vblora.vblora_vector_bank["default"]
 
         vblora_lin0_logits_B = mlp_vblora.lin0.vblora_logits_B["default"]
-        assert vblora_lin0_logits_B.shape == (mlp.lin0.out_features // vector_length, config.r, num_vectors)
+        assert vblora_lin0_logits_B.shape == (
+            mlp.lin0.out_features // vector_length,
+            config.r,
+            num_vectors,
+        )
 
         vblora_lin1_logits_A = mlp_vblora.lin1.vblora_logits_A["default"]
-        assert vblora_lin1_logits_A.shape == (config.r, mlp.lin1.in_features // vector_length, num_vectors)
+        assert vblora_lin1_logits_A.shape == (
+            config.r,
+            mlp.lin1.in_features // vector_length,
+            num_vectors,
+        )
 
         vblora_lin3_logits_A = mlp_vblora.lin3.vblora_logits_A["default"]
-        assert vblora_lin3_logits_A.shape == (config.r, mlp.lin3.in_features // vector_length, num_vectors)
+        assert vblora_lin3_logits_A.shape == (
+            config.r,
+            mlp.lin3.in_features // vector_length,
+            num_vectors,
+        )
 
         assert vector_bank.shape == (num_vectors, vector_length)
 
@@ -76,7 +90,10 @@ class TestVBLoRA:
             mlp_vblora.lin0.vblora_vector_bank["default"].data_ptr()
             == mlp_vblora.lin3.vblora_vector_bank["default"].data_ptr()
         )
-        assert mlp_vblora.lin1.vblora_vector_bank["default"].data_ptr() == vector_bank.data_ptr()
+        assert (
+            mlp_vblora.lin1.vblora_vector_bank["default"].data_ptr()
+            == vector_bank.data_ptr()
+        )
 
         # should not raise
         input = torch.randn(5, 10)
@@ -104,29 +121,45 @@ class TestVBLoRA:
         with safe_open(save_path / "adapter_model.safetensors", framework="pt") as f:
             for k in f.keys():
                 adapter_model_dict[k] = f.get_tensor(k)
-        assert "base_model.model.lin0.vblora_logits_A_topk_indices" in adapter_model_dict
-        assert "base_model.model.lin0.vblora_logits_A_topk_weights" in adapter_model_dict
-        assert "base_model.model.lin3.vblora_logits_B_topk_indices" in adapter_model_dict
-        assert "base_model.model.lin3.vblora_logits_B_topk_weights" in adapter_model_dict
+        assert (
+            "base_model.model.lin0.vblora_logits_A_topk_indices" in adapter_model_dict
+        )
+        assert (
+            "base_model.model.lin0.vblora_logits_A_topk_weights" in adapter_model_dict
+        )
+        assert (
+            "base_model.model.lin3.vblora_logits_B_topk_indices" in adapter_model_dict
+        )
+        assert (
+            "base_model.model.lin3.vblora_logits_B_topk_weights" in adapter_model_dict
+        )
         assert "base_model.model.lin0.vblora_logits_A" not in adapter_model_dict
         assert "base_model.model.lin3.vblora_logits_B" not in adapter_model_dict
 
-        assert adapter_model_dict["base_model.model.lin0.vblora_logits_B_topk_indices"].shape == (
+        assert adapter_model_dict[
+            "base_model.model.lin0.vblora_logits_B_topk_indices"
+        ].shape == (
             mlp.lin0.out_features // vector_length,
             config.r,
             topk,
         )
-        assert adapter_model_dict["base_model.model.lin0.vblora_logits_B_topk_weights"].shape == (
+        assert adapter_model_dict[
+            "base_model.model.lin0.vblora_logits_B_topk_weights"
+        ].shape == (
             mlp.lin0.out_features // vector_length,
             config.r,
             topk - 1,
         )
-        assert adapter_model_dict["base_model.model.lin3.vblora_logits_A_topk_indices"].shape == (
+        assert adapter_model_dict[
+            "base_model.model.lin3.vblora_logits_A_topk_indices"
+        ].shape == (
             config.r,
             mlp.lin3.in_features // vector_length,
             topk,
         )
-        assert adapter_model_dict["base_model.model.lin3.vblora_logits_A_topk_weights"].shape == (
+        assert adapter_model_dict[
+            "base_model.model.lin3.vblora_logits_A_topk_weights"
+        ].shape == (
             config.r,
             mlp.lin3.in_features // vector_length,
             topk - 1,
@@ -189,11 +222,16 @@ class TestVBLoRA:
     @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
     def test_vblora_dtypes(self, dtype):
         mlp = self.get_mlp()
-        if (dtype == torch.bfloat16) and not (torch.cuda.is_available() and torch.cuda.is_bf16_supported()):
+        if (dtype == torch.bfloat16) and not (
+            torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+        ):
             pytest.skip("bfloat16 not supported on this system, skipping the test")
 
         config = VBLoRAConfig(
-            target_modules=["lin0", "lin1", "lin3"], vector_length=2, num_vectors=10, save_only_topk_weights=False
+            target_modules=["lin0", "lin1", "lin3"],
+            vector_length=2,
+            num_vectors=10,
+            save_only_topk_weights=False,
         )
         mlp_vblora = get_peft_model(mlp.to(dtype), config)
         inputs = torch.randn(5, 10).to(dtype)
@@ -221,20 +259,33 @@ class TestVBLoRA:
         adapter_params, other_params = mlp_vblora.get_nb_savable_parameters()
         factor = 0.25  # dtype of index is uint8
         topk_indices_parameter = int(
-            (mlp.lin0.out_features + mlp.lin0.in_features + mlp.lin1.out_features + mlp.lin1.in_features)
+            (
+                mlp.lin0.out_features
+                + mlp.lin0.in_features
+                + mlp.lin1.out_features
+                + mlp.lin1.in_features
+            )
             / vector_length
             * r
             * topk
             * factor
         )
         topk_weights_parameter = int(
-            (mlp.lin0.out_features + mlp.lin0.in_features + mlp.lin1.out_features + mlp.lin1.in_features)
+            (
+                mlp.lin0.out_features
+                + mlp.lin0.in_features
+                + mlp.lin1.out_features
+                + mlp.lin1.in_features
+            )
             / vector_length
             * r
             * (topk - 1)
         )
         vector_bank_parameter = num_vectors * vector_length
-        assert adapter_params == topk_indices_parameter + topk_weights_parameter + vector_bank_parameter
+        assert (
+            adapter_params
+            == topk_indices_parameter + topk_weights_parameter + vector_bank_parameter
+        )
         assert other_params == (mlp.lin3.in_features + 1) * mlp.lin3.out_features
 
     def test_vblora_nb_savable_params_all_logits(self):
@@ -257,7 +308,12 @@ class TestVBLoRA:
 
         adapter_params, other_params = mlp_vblora.get_nb_savable_parameters()
         logits_parameter = int(
-            (mlp.lin0.out_features + mlp.lin0.in_features + mlp.lin1.out_features + mlp.lin1.in_features)
+            (
+                mlp.lin0.out_features
+                + mlp.lin0.in_features
+                + mlp.lin1.out_features
+                + mlp.lin1.in_features
+            )
             / vector_length
             * r
             * num_vectors

@@ -21,7 +21,6 @@ from peft.optimizers import create_loraplus_optimizer
 
 from .testing_utils import require_bitsandbytes
 
-
 if is_bnb_available():
     import bitsandbytes as bnb
 
@@ -66,7 +65,11 @@ def test_lora_plus_helper_sucess():
     assert len(optim.param_groups) == 4
     assert optim.param_groups[0]["lr"] == lr
     assert optim.param_groups[1]["lr"] == loraplus_lr_embedding
-    assert optim.param_groups[2]["lr"] == optim.param_groups[3]["lr"] == (lr * loraplus_lr_ratio)
+    assert (
+        optim.param_groups[2]["lr"]
+        == optim.param_groups[3]["lr"]
+        == (lr * loraplus_lr_ratio)
+    )
 
 
 @require_bitsandbytes

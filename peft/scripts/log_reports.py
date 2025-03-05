@@ -6,7 +6,6 @@ from pathlib import Path
 
 from tabulate import tabulate
 
-
 MAX_LEN_MESSAGE = 2900  # slack endpoint has a limit of 3001 characters
 
 parser = argparse.ArgumentParser()
@@ -69,7 +68,9 @@ def main(slack_channel_name=None):
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": "🤗 Results of the {} PEFT scheduled tests.".format(os.environ.get("TEST_TYPE", "")),
+                "text": "🤗 Results of the {} PEFT scheduled tests.".format(
+                    os.environ.get("TEST_TYPE", "")
+                ),
             },
         },
     ]
@@ -116,7 +117,11 @@ def main(slack_channel_name=None):
                 "text": {"type": "mrkdwn", "text": "*For more details:*"},
                 "accessory": {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "Check Action results", "emoji": True},
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Check Action results",
+                        "emoji": True,
+                    },
                     "url": f"https://github.com/huggingface/peft/actions/runs/{os.environ['GITHUB_RUN_ID']}",
                 },
             }
@@ -136,7 +141,9 @@ def main(slack_channel_name=None):
         print(payload)
 
         client = WebClient(token=os.environ.get("SLACK_API_TOKEN"))
-        client.chat_postMessage(channel=f"#{slack_channel_name}", text=message, blocks=payload)
+        client.chat_postMessage(
+            channel=f"#{slack_channel_name}", text=message, blocks=payload
+        )
 
 
 if __name__ == "__main__":

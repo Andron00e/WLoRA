@@ -16,8 +16,8 @@
     },
     "qnli": {
         "LoRA": {"lr": 1e-3},
-        "WeightLoRA": {"lr": 1e-3},
-        "FatLoRA": {"lr": 3e-4}
+        "WeightLoRA": {"lr": 1e-4},
+        "FatLoRA": {"lr": 1e-4}
     },
     "qqp": {
         "LoRA": {"lr": 1e-3},

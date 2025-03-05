@@ -48,12 +48,7 @@ class WeightLoraLayer(nn.Module, LycorisLayer):
             *self.weight_lora_w,
         }
 
-    def create_adapter_parameters(
-        self,
-        adapter_name: str,
-        r: int,
-        shape
-    ):
+    def create_adapter_parameters(self, adapter_name: str, r: int, shape):
         self.weight_lora_A[adapter_name] = nn.Parameter(torch.empty(shape[0], r))
         self.weight_lora_B[adapter_name] = nn.Parameter(torch.empty(r, shape[1]))
         self.weight_lora_w[adapter_name] = nn.Parameter(torch.empty(1))
@@ -86,7 +81,9 @@ class WeightLoraLayer(nn.Module, LycorisLayer):
             decompose_factor (`int`): Kronecker product decomposition factor.
         """
         if r <= 0:
-            raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
+            raise ValueError(
+                f"`r` should be a positive integer value but the value passed is {r}"
+            )
 
         self.r[adapter_name] = r
         self.lora_alpha[adapter_name] = lora_alpha
@@ -99,7 +96,9 @@ class WeightLoraLayer(nn.Module, LycorisLayer):
         if isinstance(base_layer, nn.Linear):
             shape = (base_layer.in_features, base_layer.out_features)
         else:
-            raise TypeError(f"WeightLora is not implemented for base layers of type {type(base_layer).__name__}")
+            raise TypeError(
+                f"WeightLora is not implemented for base layers of type {type(base_layer).__name__}"
+            )
 
         # Create weights with provided shape
         self.create_adapter_parameters(adapter_name, r, shape)
@@ -119,7 +118,9 @@ class WeightLoraLayer(nn.Module, LycorisLayer):
         w_B = self.weight_lora_B[adapter_name]
         w = self.weight_lora_w[adapter_name]
 
-        cast_to_fp32 = device.type == "cpu" and (dtype == torch.float16 or dtype == torch.bfloat16)
+        cast_to_fp32 = device.type == "cpu" and (
+            dtype == torch.float16 or dtype == torch.bfloat16
+        )
         if cast_to_fp32:
             w_A = w_A.float()
             w_B = w_B.float()
@@ -166,8 +167,12 @@ class WeightLoraLayer(nn.Module, LycorisLayer):
                 module_dropout = self.module_dropout[active_adapter]
 
                 # Modify current execution weights
-                if (not self.training) or (self.training and torch.rand(1) > module_dropout):
-                    result = result + self._get_delta_activations(active_adapter, x, *args, **kwargs)
+                if (not self.training) or (
+                    self.training and torch.rand(1) > module_dropout
+                ):
+                    result = result + self._get_delta_activations(
+                        active_adapter, x, *args, **kwargs
+                    )
 
         result = result.to(previous_dtype)
         return result
@@ -192,7 +197,9 @@ class Linear(WeightLoraLayer):
 
         # Create adapter and set it active
         self._active_adapter = adapter_name
-        self.update_layer(adapter_name, r, lora_alpha, rank_dropout, module_dropout, **kwargs)
+        self.update_layer(
+            adapter_name, r, lora_alpha, rank_dropout, module_dropout, **kwargs
+        )
 
     def _get_delta_activations(
         self, adapter_name: str, input: torch.Tensor, *args: Any, **kwargs: Any

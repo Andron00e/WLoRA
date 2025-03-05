@@ -53,7 +53,9 @@ class PolyLayer(BaseTunerLayer):
 
     def update_layer(self, adapter_name, poly_config):
         if poly_config.r <= 0:
-            raise ValueError(f"`r` should be a positive integer value but the value passed is {poly_config.r}")
+            raise ValueError(
+                f"`r` should be a positive integer value but the value passed is {poly_config.r}"
+            )
 
         self.r[adapter_name] = poly_config.r
         self.n_tasks[adapter_name] = poly_config.n_tasks
@@ -105,7 +107,9 @@ class PolyLayer(BaseTunerLayer):
                     for split in range(n_splits):
                         param = torch.empty((d, r))
                         torch.nn.init.kaiming_uniform_(param, a=math.sqrt(5))
-                        self.poly_lora_B[adapter_name].data[split, skill, :, :] = param.T
+                        self.poly_lora_B[adapter_name].data[
+                            split, skill, :, :
+                        ] = param.T
 
             # initialized router
             self.poly_router[adapter_name].reset()
@@ -126,7 +130,9 @@ class Linear(nn.Module, PolyLayer):
         self._active_adapter = adapter_name
         self.update_layer(adapter_name, poly_config)
 
-    def forward(self, x: torch.Tensor, *args: Any, task_ids: torch.Tensor = None, **kwargs: Any) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, *args: Any, task_ids: torch.Tensor = None, **kwargs: Any
+    ) -> torch.Tensor:
         previous_dtype = x.dtype
         if self.disable_adapters:
             result = self.base_layer(x, *args, **kwargs)

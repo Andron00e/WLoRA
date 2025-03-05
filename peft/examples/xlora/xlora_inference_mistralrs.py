@@ -1,6 +1,5 @@
 from mistralrs import ChatCompletionRequest, Runner, Which
 
-
 runner = Runner(
     which=Which.XLora(
         tok_model_id=None,  # Automatically determine from ordering file
@@ -14,7 +13,9 @@ runner = Runner(
 res = runner.send_chat_completion_request(
     ChatCompletionRequest(
         model="mistral",
-        messages=[{"role": "user", "content": "Tell me a story about 2 low rank matrices."}],
+        messages=[
+            {"role": "user", "content": "Tell me a story about 2 low rank matrices."}
+        ],
         max_tokens=256,
         presence_penalty=1.0,
         top_p=0.1,

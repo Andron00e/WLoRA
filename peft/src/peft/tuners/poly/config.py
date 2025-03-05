@@ -67,7 +67,9 @@ class PolyConfig(PeftConfig):
     )
     poly_type: Literal["poly"] = field(
         default="poly",
-        metadata={"help": 'Type of Poly modules to be used. Currently only "poly" is supported.'},
+        metadata={
+            "help": 'Type of Poly modules to be used. Currently only "poly" is supported.'
+        },
     )
     n_tasks: int = field(
         default=1,
@@ -85,5 +87,7 @@ class PolyConfig(PeftConfig):
     def __post_init__(self):
         self.peft_type = PeftType.POLY
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )

@@ -16,5 +16,4 @@ from .config import FourierFTConfig
 from .layer import FourierFTLayer, FourierFTLinear
 from .model import FourierFTModel
 
-
 __all__ = ["FourierFTConfig", "FourierFTLayer", "FourierFTLinear", "FourierFTModel"]

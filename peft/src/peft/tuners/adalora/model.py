@@ -20,13 +20,9 @@ from transformers.pytorch_utils import Conv1D
 from peft.import_utils import is_bnb_4bit_available, is_bnb_available
 from peft.tuners.lora import LoraConfig, LoraModel
 from peft.tuners.tuners_utils import BaseTunerLayer
-from peft.utils import (
-    TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING,
-    _freeze_adapter,
-    _get_submodules,
-    get_auto_gptq_quant_linear,
-    get_quantization_config,
-)
+from peft.utils import (TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING,
+                        _freeze_adapter, _get_submodules,
+                        get_auto_gptq_quant_linear, get_quantization_config)
 from peft.utils.integrations import gather_params_ctx
 
 from .gptq import SVDQuantLinear
@@ -80,7 +76,9 @@ class AdaLoraModel(LoraModel):
             _freeze_adapter(self.model, adapter_name)
         else:
             self.trainable_adapter_name = adapter_name
-            self.rankallocator = RankAllocator(self.model, self.peft_config[adapter_name], self.trainable_adapter_name)
+            self.rankallocator = RankAllocator(
+                self.model, self.peft_config[adapter_name], self.trainable_adapter_name
+            )
 
     def _check_new_adapter_config(self, config: LoraConfig) -> None:
         """
@@ -121,7 +119,9 @@ class AdaLoraModel(LoraModel):
             "loaded_in_8bit": getattr(self.model, "is_loaded_in_8bit", False),
             "loaded_in_4bit": getattr(self.model, "is_loaded_in_4bit", False),
         }
-        if (kwargs["loaded_in_8bit"] or kwargs["loaded_in_4bit"]) and not is_bnb_available():
+        if (
+            kwargs["loaded_in_8bit"] or kwargs["loaded_in_4bit"]
+        ) and not is_bnb_available():
             raise ImportError(
                 "To use AdaLora with 8-bit quantization, please install the `bitsandbytes` package. "
                 "You can install it with `pip install bitsandbytes`."
@@ -133,7 +133,9 @@ class AdaLoraModel(LoraModel):
 
         # If it is not an AdaLoraLayer, create a new module, else update it with new adapters
         if not isinstance(target, AdaLoraLayer):
-            new_module = self._create_new_module(lora_config, adapter_name, target, **kwargs)
+            new_module = self._create_new_module(
+                lora_config, adapter_name, target, **kwargs
+            )
             if adapter_name not in self.active_adapters:
                 # adding an additional adapter: it is not automatically trainable
                 new_module.requires_grad_(False)
@@ -178,7 +180,11 @@ class AdaLoraModel(LoraModel):
                 }
             )
             new_module = SVDLinear8bitLt(target, adapter_name, **kwargs)
-        elif loaded_in_4bit and is_bnb_4bit_available() and isinstance(target_base_layer, bnb.nn.Linear4bit):
+        elif (
+            loaded_in_4bit
+            and is_bnb_4bit_available()
+            and isinstance(target_base_layer, bnb.nn.Linear4bit)
+        ):
             fourbit_kwargs = kwargs.copy()
             fourbit_kwargs.update(
                 {
@@ -188,7 +194,9 @@ class AdaLoraModel(LoraModel):
                 }
             )
             new_module = SVDLinear4bit(target, adapter_name, **fourbit_kwargs)
-        elif AutoGPTQQuantLinear is not None and isinstance(target, AutoGPTQQuantLinear):
+        elif AutoGPTQQuantLinear is not None and isinstance(
+            target, AutoGPTQQuantLinear
+        ):
             new_module = SVDQuantLinear(target, adapter_name, **kwargs)
         else:
             if isinstance(target_base_layer, torch.nn.Linear):
@@ -217,11 +225,16 @@ class AdaLoraModel(LoraModel):
     @staticmethod
     def _prepare_adapter_config(peft_config, model_config):
         if peft_config.target_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING:
-                raise ValueError("Please specify `target_modules` in `peft_config`")
-            peft_config.target_modules = TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING[
+            if (
                 model_config["model_type"]
-            ]
+                not in TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING
+            ):
+                raise ValueError("Please specify `target_modules` in `peft_config`")
+            peft_config.target_modules = (
+                TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
+            )
         return peft_config
 
     def __getattr__(self, name: str):
@@ -229,16 +242,22 @@ class AdaLoraModel(LoraModel):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.model, name)
 
     def forward(self, *args, **kwargs):
         outputs = self.model.forward(*args, **kwargs)
 
-        if (getattr(outputs, "loss", None) is not None) and isinstance(outputs.loss, torch.Tensor):
+        if (getattr(outputs, "loss", None) is not None) and isinstance(
+            outputs.loss, torch.Tensor
+        ):
             # Calculate the orthogonal regularization
-            orth_reg_weight = self.peft_config[self.trainable_adapter_name].orth_reg_weight
+            orth_reg_weight = self.peft_config[
+                self.trainable_adapter_name
+            ].orth_reg_weight
 
             if orth_reg_weight <= 0:
                 raise ValueError("orth_reg_weight should be greater than 0. ")
@@ -246,13 +265,17 @@ class AdaLoraModel(LoraModel):
             regu_loss = 0
             num_param = 0
             for n, p in self.model.named_parameters():
-                if ("lora_A" in n or "lora_B" in n) and self.trainable_adapter_name in n:
+                if (
+                    "lora_A" in n or "lora_B" in n
+                ) and self.trainable_adapter_name in n:
                     if p.shape == torch.Size([0]):
                         with gather_params_ctx(p, fwd_module=self):
                             para_cov = p @ p.T if "lora_A" in n else p.T @ p
                     else:
                         para_cov = p @ p.T if "lora_A" in n else p.T @ p
-                    I = torch.eye(*para_cov.size(), out=torch.empty_like(para_cov))  # noqa: E741
+                    I = torch.eye(
+                        *para_cov.size(), out=torch.empty_like(para_cov)
+                    )  # noqa: E741
                     I.requires_grad = False
                     num_param += 1
                     regu_loss += torch.norm(para_cov - I, p="fro")
@@ -273,7 +296,11 @@ class AdaLoraModel(LoraModel):
                 rank = rank_idx.sum().item()
             else:
                 raise ValueError("Unexpected type of rank_idx")
-            key = ".".join(name.split(".")[0:-2]) if adapter_name in name else ".".join(name.split(".")[0:-1])
+            key = (
+                ".".join(name.split(".")[0:-2])
+                if adapter_name in name
+                else ".".join(name.split(".")[0:-1])
+            )
             _, target, _ = _get_submodules(self.model, key)
             lora_E_weights = target.lora_E[adapter_name][rank_idx]
             lora_A_weights = target.lora_A[adapter_name][rank_idx]
@@ -297,16 +324,24 @@ class AdaLoraModel(LoraModel):
     def resize_state_dict_by_rank_pattern(self, rank_pattern, state_dict, adapter_name):
         for name, rank_idx in rank_pattern.items():
             rank = sum(rank_idx)
-            prefix = ".".join(name.split(".")[0:-2]) if adapter_name in name else ".".join(name.split(".")[0:-1])
+            prefix = (
+                ".".join(name.split(".")[0:-2])
+                if adapter_name in name
+                else ".".join(name.split(".")[0:-1])
+            )
             for layer in ["lora_E", "lora_A", "lora_B"]:
                 key = f"base_model.model.{prefix}.{layer}.{adapter_name}"
                 if layer != "lora_B":
                     state_dict[key] = (
-                        state_dict[key][rank_idx] if rank != state_dict[key].shape[0] else state_dict[key]
+                        state_dict[key][rank_idx]
+                        if rank != state_dict[key].shape[0]
+                        else state_dict[key]
                     )
                 else:
                     state_dict[key] = (
-                        state_dict[key][:, rank_idx] if rank != state_dict[key].shape[1] else state_dict[key]
+                        state_dict[key][:, rank_idx]
+                        if rank != state_dict[key].shape[1]
+                        else state_dict[key]
                     )
         return state_dict
 
@@ -334,12 +369,16 @@ class AdaLoraModel(LoraModel):
         lora_config = self.peft_config[self.trainable_adapter_name]
         # Update the importance score and allocate the budget
         if global_step < lora_config.total_step - lora_config.tfinal:
-            _, rank_pattern = self.rankallocator.update_and_allocate(self.model, global_step)
+            _, rank_pattern = self.rankallocator.update_and_allocate(
+                self.model, global_step
+            )
             if rank_pattern:
                 lora_config.rank_pattern = rank_pattern
         # Finalize the budget allocation
         elif global_step == lora_config.total_step - lora_config.tfinal:
-            _, rank_pattern = self.rankallocator.update_and_allocate(self.model, global_step, force_mask=True)
+            _, rank_pattern = self.rankallocator.update_and_allocate(
+                self.model, global_step, force_mask=True
+            )
             # for some reason, this freezes the trainable parameters and nothing gets updates
             # self.resize_modules_by_rank_pattern(rank_pattern, self.trainable_adapter_name)
             lora_config.rank_pattern = rank_pattern
@@ -347,11 +386,15 @@ class AdaLoraModel(LoraModel):
         # Currently using inefficient way to mask the unimportant weights using the rank pattern
         #  due to problem mentioned above
         elif global_step > lora_config.total_step - lora_config.tfinal:
-            self.rankallocator.mask_using_rank_pattern(self.model, lora_config.rank_pattern)
+            self.rankallocator.mask_using_rank_pattern(
+                self.model, lora_config.rank_pattern
+            )
         # Pass the function and do forward propagation
         else:
             return None
 
     def add_weighted_adapter(self, *args, **kwargs):
         """This method is not supported for AdaLoRA, use LoRA instead."""
-        raise TypeError(f"{self.__class__.__name__} does not support add_weighted_adapter method.")
+        raise TypeError(
+            f"{self.__class__.__name__} does not support add_weighted_adapter method."
+        )

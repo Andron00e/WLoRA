@@ -24,14 +24,11 @@ from torch import nn
 from transformers.pytorch_utils import Conv1D
 
 from peft.import_utils import is_bnb_4bit_available, is_bnb_available
-from peft.tuners.tuners_utils import BaseTuner, BaseTunerLayer, check_target_module_exists
-from peft.utils import (
-    TRANSFORMERS_MODELS_TO_IA3_FEEDFORWARD_MODULES_MAPPING,
-    TRANSFORMERS_MODELS_TO_IA3_TARGET_MODULES_MAPPING,
-    ModulesToSaveWrapper,
-    _freeze_adapter,
-    _get_submodules,
-)
+from peft.tuners.tuners_utils import (BaseTuner, BaseTunerLayer,
+                                      check_target_module_exists)
+from peft.utils import (TRANSFORMERS_MODELS_TO_IA3_FEEDFORWARD_MODULES_MAPPING,
+                        TRANSFORMERS_MODELS_TO_IA3_TARGET_MODULES_MAPPING,
+                        ModulesToSaveWrapper, _freeze_adapter, _get_submodules)
 
 from .layer import Conv2d, IA3Layer, Linear
 
@@ -106,7 +103,9 @@ class IA3Model(BaseTuner):
                     "index": target_base_layer.index,
                 }
             )
-            new_module = Linear8bitLt(target, adapter_name, is_feedforward=is_feedforward, **eightbit_kwargs)
+            new_module = Linear8bitLt(
+                target, adapter_name, is_feedforward=is_feedforward, **eightbit_kwargs
+            )
         elif loaded_in_4bit and isinstance(target_base_layer, bnb.nn.Linear4bit):
             fourbit_kwargs = kwargs.copy()
             fourbit_kwargs.update(
@@ -116,9 +115,13 @@ class IA3Model(BaseTuner):
                     "quant_type": target_base_layer.weight.quant_type,
                 }
             )
-            new_module = Linear4bit(target, adapter_name, is_feedforward=is_feedforward, **fourbit_kwargs)
+            new_module = Linear4bit(
+                target, adapter_name, is_feedforward=is_feedforward, **fourbit_kwargs
+            )
         elif isinstance(target, torch.nn.Conv2d):
-            new_module = Conv2d(target, adapter_name, is_feedforward=is_feedforward, **kwargs)
+            new_module = Conv2d(
+                target, adapter_name, is_feedforward=is_feedforward, **kwargs
+            )
         elif isinstance(target_base_layer, torch.nn.Linear):
             if kwargs["fan_in_fan_out"]:
                 warnings.warn(
@@ -126,7 +129,9 @@ class IA3Model(BaseTuner):
                     "Setting fan_in_fan_out to False."
                 )
                 kwargs["fan_in_fan_out"] = ia3_config.fan_in_fan_out = False
-            new_module = Linear(target, adapter_name, is_feedforward=is_feedforward, **kwargs)
+            new_module = Linear(
+                target, adapter_name, is_feedforward=is_feedforward, **kwargs
+            )
         elif isinstance(target_base_layer, Conv1D):
             if not kwargs["fan_in_fan_out"]:
                 warnings.warn(
@@ -135,7 +140,11 @@ class IA3Model(BaseTuner):
                 )
                 kwargs["fan_in_fan_out"] = ia3_config.fan_in_fan_out = True
             new_module = Linear(
-                target, adapter_name, is_feedforward=is_feedforward, is_target_conv_1d_layer=True, **kwargs
+                target,
+                adapter_name,
+                is_feedforward=is_feedforward,
+                is_target_conv_1d_layer=True,
+                **kwargs,
             )
         else:
             raise ValueError(
@@ -179,7 +188,9 @@ class IA3Model(BaseTuner):
                 ia3_config.init_ia3_weights,
             )
         else:
-            new_module = self._create_new_module(ia3_config, adapter_name, target, **kwargs)
+            new_module = self._create_new_module(
+                ia3_config, adapter_name, target, **kwargs
+            )
             if adapter_name not in self.active_adapters:
                 # adding an additional adapter: it is not automatically trainable
                 new_module.requires_grad_(False)
@@ -194,7 +205,10 @@ class IA3Model(BaseTuner):
         if isinstance(ia3_config.feedforward_modules, str):
             is_feedforward = bool(re.fullmatch(ia3_config.feedforward_modules, key))
         else:
-            is_feedforward = any(key.endswith(target_key) for target_key in ia3_config.feedforward_modules)
+            is_feedforward = any(
+                key.endswith(target_key)
+                for target_key in ia3_config.feedforward_modules
+            )
         return is_feedforward
 
     def _replace_module(self, parent, child_name, new_module, child):
@@ -227,14 +241,19 @@ class IA3Model(BaseTuner):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.model, name)
 
     def get_peft_config_as_dict(self, inference: bool = False):
         config_dict = {}
         for key, value in self.peft_config.items():
-            config = {k: v.value if isinstance(v, Enum) else v for k, v in asdict(value).items()}
+            config = {
+                k: v.value if isinstance(v, Enum) else v
+                for k, v in asdict(value).items()
+            }
             if inference:
                 config["inference_mode"] = True
         config_dict[key] = config
@@ -277,7 +296,9 @@ class IA3Model(BaseTuner):
         for module in self.model.modules():
             if isinstance(module, IA3Layer):
                 if module.merged:
-                    warnings.warn("Adapter cannot be set when the model is merged. Unmerging the model first.")
+                    warnings.warn(
+                        "Adapter cannot be set when the model is merged. Unmerging the model first."
+                    )
                     module.unmerge()
                 module.set_adapter(adapter_name)
         self.active_adapter = adapter_name
@@ -285,21 +306,36 @@ class IA3Model(BaseTuner):
     @staticmethod
     def _prepare_adapter_config(peft_config, model_config):
         if peft_config.target_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_IA3_TARGET_MODULES_MAPPING:
+            if (
+                model_config["model_type"]
+                not in TRANSFORMERS_MODELS_TO_IA3_TARGET_MODULES_MAPPING
+            ):
                 raise ValueError("Please specify `target_modules` in `peft_config`")
             peft_config.target_modules = set(
-                TRANSFORMERS_MODELS_TO_IA3_TARGET_MODULES_MAPPING[model_config["model_type"]]
+                TRANSFORMERS_MODELS_TO_IA3_TARGET_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
             )
         if peft_config.feedforward_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_IA3_FEEDFORWARD_MODULES_MAPPING:
-                raise ValueError("Please specify `feedforward_modules` in `peft_config`")
+            if (
+                model_config["model_type"]
+                not in TRANSFORMERS_MODELS_TO_IA3_FEEDFORWARD_MODULES_MAPPING
+            ):
+                raise ValueError(
+                    "Please specify `feedforward_modules` in `peft_config`"
+                )
             peft_config.feedforward_modules = set(
-                TRANSFORMERS_MODELS_TO_IA3_FEEDFORWARD_MODULES_MAPPING[model_config["model_type"]]
+                TRANSFORMERS_MODELS_TO_IA3_FEEDFORWARD_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
             )
         return peft_config
 
     def _unload_and_optionally_merge(
-        self, merge: bool = True, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+        self,
+        merge: bool = True,
+        safe_merge: bool = False,
+        adapter_names: Optional[list[str]] = None,
     ):
         r"""
         This method merges the (IA)^3 layers into the base model. This is needed if someone wants to use the base model
@@ -315,13 +351,19 @@ class IA3Model(BaseTuner):
                 to `None`.
         """
         if getattr(self.model, "is_loaded_in_8bit", False):
-            raise ValueError("Cannot merge ia3 layers when the model is loaded in 8-bit mode")
+            raise ValueError(
+                "Cannot merge ia3 layers when the model is loaded in 8-bit mode"
+            )
 
         if getattr(self.model, "is_loaded_in_4bit", False):
-            raise ValueError("Cannot merge ia3 layers when the model is loaded in 4-bit mode")
+            raise ValueError(
+                "Cannot merge ia3 layers when the model is loaded in 4-bit mode"
+            )
 
         self._unloading_checks(adapter_names)
-        key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if self.prefix not in key
+        ]
         for key in key_list:
             try:
                 parent, target, target_name = _get_submodules(self.model, key)
@@ -331,20 +373,26 @@ class IA3Model(BaseTuner):
             if hasattr(target, "base_layer"):
                 if merge:
                     target.merge(safe_merge=safe_merge, adapter_names=adapter_names)
-                self._replace_module(parent, target_name, target.get_base_layer(), target)
+                self._replace_module(
+                    parent, target_name, target.get_base_layer(), target
+                )
             elif isinstance(target, ModulesToSaveWrapper):
                 # save any additional trainable modules part of `modules_to_save`
                 new_module = target.modules_to_save[target.active_adapter]
                 if hasattr(new_module, "base_layer"):
                     # check if the module is itself a tuner layer
                     if merge:
-                        new_module.merge(safe_merge=safe_merge, adapter_names=adapter_names)
+                        new_module.merge(
+                            safe_merge=safe_merge, adapter_names=adapter_names
+                        )
                     new_module = new_module.get_base_layer()
                 setattr(parent, target_name, new_module)
 
         return self.model
 
-    def merge_and_unload(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> torch.nn.Module:
+    def merge_and_unload(
+        self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+    ) -> torch.nn.Module:
         r"""
         This method merges the IA³ layers into the base model. This is needed if someone wants to use the base model as
         a standalone model.
@@ -369,7 +417,9 @@ class IA3Model(BaseTuner):
         >>> merged_model = model.merge_and_unload()
         ```
         """
-        return self._unload_and_optionally_merge(safe_merge=safe_merge, adapter_names=adapter_names)
+        return self._unload_and_optionally_merge(
+            safe_merge=safe_merge, adapter_names=adapter_names
+        )
 
     def unload(self) -> torch.nn.Module:
         """
@@ -389,7 +439,9 @@ class IA3Model(BaseTuner):
             raise ValueError(f"Adapter {adapter_name} does not exist")
         del self.peft_config[adapter_name]
 
-        key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if self.prefix not in key
+        ]
         new_adapter = None
         for key in key_list:
             _, target, _ = _get_submodules(self.model, key)
@@ -411,27 +463,45 @@ class IA3Model(BaseTuner):
                 raise ValueError(f"Adapter {adapter} does not exist")
 
         # Check for conflicting modules_to_save
-        modules_to_save_wrappers = [module for module in self.modules() if isinstance(module, ModulesToSaveWrapper)]
+        modules_to_save_wrappers = [
+            module
+            for module in self.modules()
+            if isinstance(module, ModulesToSaveWrapper)
+        ]
         if any(
-            sum(adapter in wrapper.modules_to_save for adapter in adapters) > 1 for wrapper in modules_to_save_wrappers
+            sum(adapter in wrapper.modules_to_save for adapter in adapters) > 1
+            for wrapper in modules_to_save_wrappers
         ):
-            raise ValueError("Cannot add weighted adapters targeting the same module with modules_to_save.")
+            raise ValueError(
+                "Cannot add weighted adapters targeting the same module with modules_to_save."
+            )
 
         # Ensure all adapters have compatible target and feedforward module types
-        target_module_types = {type(self.peft_config[adapter].target_modules) for adapter in adapters}
-        feedforward_module_types = {type(self.peft_config[adapter].feedforward_modules) for adapter in adapters}
+        target_module_types = {
+            type(self.peft_config[adapter].target_modules) for adapter in adapters
+        }
+        feedforward_module_types = {
+            type(self.peft_config[adapter].feedforward_modules) for adapter in adapters
+        }
         if len(target_module_types) > 1 or len(feedforward_module_types) > 1:
-            raise ValueError("All adapter configs should have the same type for target and feedforward modules.")
+            raise ValueError(
+                "All adapter configs should have the same type for target and feedforward modules."
+            )
 
         # Combine target and feedforward modules
         if str in target_module_types:
-            new_target_modules = "|".join(f"({self.peft_config[adapter].target_modules})" for adapter in adapters)
+            new_target_modules = "|".join(
+                f"({self.peft_config[adapter].target_modules})" for adapter in adapters
+            )
         else:
-            new_target_modules = set.union(*(self.peft_config[adapter].target_modules for adapter in adapters))
+            new_target_modules = set.union(
+                *(self.peft_config[adapter].target_modules for adapter in adapters)
+            )
 
         if str in feedforward_module_types:
             new_feedforward_modules = "|".join(
-                f"({self.peft_config[adapter].feedforward_modules})" for adapter in adapters
+                f"({self.peft_config[adapter].feedforward_modules})"
+                for adapter in adapters
             )
         else:
             new_feedforward_modules = set.union(
@@ -474,7 +544,9 @@ class IA3Model(BaseTuner):
         # Do we really need that?
         _freeze_adapter(self.model, adapter_name)
 
-        key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if self.prefix not in key
+        ]
         for key in key_list:
             _, target, _ = _get_submodules(self.model, key)
             if isinstance(target, IA3Layer):

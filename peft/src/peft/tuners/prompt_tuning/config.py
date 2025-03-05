@@ -70,12 +70,16 @@ class PromptTuningConfig(PromptLearningConfig):
 
     def __post_init__(self):
         self.peft_type = PeftType.PROMPT_TUNING
-        if (self.prompt_tuning_init == PromptTuningInit.TEXT) and not self.tokenizer_name_or_path:
+        if (
+            self.prompt_tuning_init == PromptTuningInit.TEXT
+        ) and not self.tokenizer_name_or_path:
             raise ValueError(
                 f"When prompt_tuning_init='{PromptTuningInit.TEXT.value}', "
                 f"tokenizer_name_or_path can't be {self.tokenizer_name_or_path}."
             )
-        if (self.prompt_tuning_init == PromptTuningInit.TEXT) and self.prompt_tuning_init_text is None:
+        if (
+            self.prompt_tuning_init == PromptTuningInit.TEXT
+        ) and self.prompt_tuning_init_text is None:
             raise ValueError(
                 f"When prompt_tuning_init='{PromptTuningInit.TEXT.value}', "
                 f"prompt_tuning_init_text can't be {self.prompt_tuning_init_text}."

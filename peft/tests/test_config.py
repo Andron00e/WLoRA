@@ -22,30 +22,13 @@ import warnings
 import pytest
 from parameterized import parameterized
 
-from peft import (
-    AdaLoraConfig,
-    AdaptionPromptConfig,
-    BOFTConfig,
-    FourierFTConfig,
-    HRAConfig,
-    IA3Config,
-    LNTuningConfig,
-    LoHaConfig,
-    LoKrConfig,
-    LoraConfig,
-    MultitaskPromptTuningConfig,
-    OFTConfig,
-    PeftConfig,
-    PeftType,
-    PolyConfig,
-    PrefixTuningConfig,
-    PromptEncoder,
-    PromptEncoderConfig,
-    PromptTuningConfig,
-    VBLoRAConfig,
-    VeraConfig,
-)
-
+from peft import (AdaLoraConfig, AdaptionPromptConfig, BOFTConfig,
+                  FourierFTConfig, HRAConfig, IA3Config, LNTuningConfig,
+                  LoHaConfig, LoKrConfig, LoraConfig,
+                  MultitaskPromptTuningConfig, OFTConfig, PeftConfig, PeftType,
+                  PolyConfig, PrefixTuningConfig, PromptEncoder,
+                  PromptEncoderConfig, PromptTuningConfig, VBLoRAConfig,
+                  VeraConfig)
 
 PEFT_MODELS_TO_TEST = [("lewtun/tiny-random-OPTForCausalLM-delta", "v1")]
 
@@ -162,7 +145,9 @@ class PeftConfigTester(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dirname:
             for model_name, revision in PEFT_MODELS_TO_TEST:
                 # Test we can load config from delta
-                config_class.from_pretrained(model_name, revision=revision, cache_dir=tmp_dirname)
+                config_class.from_pretrained(
+                    model_name, revision=revision, cache_dir=tmp_dirname
+                )
 
     def test_from_pretrained_cache_dir_remote(self):
         r"""
@@ -242,7 +227,17 @@ class PeftConfigTester(unittest.TestCase):
         expected_msg = "for MLP, the argument `encoder_num_layers` is ignored. Exactly 2 MLP layers are used."
         assert str(record.list[0].message) == expected_msg
 
-    @parameterized.expand([LoHaConfig, LoraConfig, IA3Config, OFTConfig, BOFTConfig, HRAConfig, VBLoRAConfig])
+    @parameterized.expand(
+        [
+            LoHaConfig,
+            LoraConfig,
+            IA3Config,
+            OFTConfig,
+            BOFTConfig,
+            HRAConfig,
+            VBLoRAConfig,
+        ]
+    )
     def test_save_pretrained_with_target_modules(self, config_class):
         # See #1041, #1045
         config = config_class(target_modules=["a", "list"])
@@ -261,12 +256,22 @@ class PeftConfigTester(unittest.TestCase):
         invalid_config1 = {"target_modules": ".*foo", "layers_to_transform": [0]}
         invalid_config2 = {"target_modules": ".*foo", "layers_pattern": ["bar"]}
 
-        valid_config = {"target_modules": ["foo"], "layers_pattern": ["bar"], "layers_to_transform": [0]}
+        valid_config = {
+            "target_modules": ["foo"],
+            "layers_pattern": ["bar"],
+            "layers_to_transform": [0],
+        }
 
-        with pytest.raises(ValueError, match="`layers_to_transform` cannot be used when `target_modules` is a str."):
+        with pytest.raises(
+            ValueError,
+            match="`layers_to_transform` cannot be used when `target_modules` is a str.",
+        ):
             LoraConfig(**invalid_config1)
 
-        with pytest.raises(ValueError, match="`layers_pattern` cannot be used when `target_modules` is a str."):
+        with pytest.raises(
+            ValueError,
+            match="`layers_pattern` cannot be used when `target_modules` is a str.",
+        ):
             LoraConfig(**invalid_config2)
 
         # should run without errors
@@ -279,7 +284,10 @@ class PeftConfigTester(unittest.TestCase):
         # an example invalid config
         invalid_config = {"target_modules": ["k", "v"], "feedforward_modules": ["q"]}
 
-        with pytest.raises(ValueError, match="^`feedforward_modules` should be a subset of `target_modules`$"):
+        with pytest.raises(
+            ValueError,
+            match="^`feedforward_modules` should be a subset of `target_modules`$",
+        ):
             IA3Config(**invalid_config)
 
     def test_ia3_is_feedforward_subset_valid_config(self):
@@ -292,7 +300,10 @@ class PeftConfigTester(unittest.TestCase):
             "feedforward_modules": ".*.DenseReluDense.wo$",
         }
         # an example valid config with module lists.
-        valid_config_list = {"target_modules": ["k", "v", "wo"], "feedforward_modules": ["wo"]}
+        valid_config_list = {
+            "target_modules": ["k", "v", "wo"],
+            "feedforward_modules": ["wo"],
+        }
 
         # should run without errors
         IA3Config(**valid_config_regex_exp)
@@ -301,14 +312,24 @@ class PeftConfigTester(unittest.TestCase):
     def test_adalora_config_r_warning(self):
         # This test checks that a warning is raised when r is set other than default in AdaLoraConfig
         # No warning should be raised when initializing AdaLoraConfig with default values.
-        kwargs = {"peft_type": "ADALORA", "task_type": "SEQ_2_SEQ_LM", "init_r": 12, "lora_alpha": 32}
+        kwargs = {
+            "peft_type": "ADALORA",
+            "task_type": "SEQ_2_SEQ_LM",
+            "init_r": 12,
+            "lora_alpha": 32,
+        }
         # Test that no warning is raised with default initialization
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             try:
                 AdaLoraConfig(**kwargs)
             except Warning:
-                pytest.fail("AdaLoraConfig raised a warning with default initialization.")
+                pytest.fail(
+                    "AdaLoraConfig raised a warning with default initialization."
+                )
         # Test that a warning is raised when r != 8 in AdaLoraConfig
-        with pytest.warns(UserWarning, match="Note that `r` is not used in AdaLora and will be ignored."):
+        with pytest.warns(
+            UserWarning,
+            match="Note that `r` is not used in AdaLora and will be ignored.",
+        ):
             AdaLoraConfig(r=10)

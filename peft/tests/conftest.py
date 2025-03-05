@@ -16,7 +16,9 @@ import pytest
 
 
 def pytest_addoption(parser):
-    parser.addoption("--regression", action="store_true", default=False, help="run regression tests")
+    parser.addoption(
+        "--regression", action="store_true", default=False, help="run regression tests"
+    )
 
 
 def pytest_configure(config):
@@ -27,7 +29,9 @@ def pytest_collection_modifyitems(config, items):
     if config.getoption("--regression"):
         return
 
-    skip_regression = pytest.mark.skip(reason="need --regression option to run regression tests")
+    skip_regression = pytest.mark.skip(
+        reason="need --regression option to run regression tests"
+    )
     for item in items:
         if "regression" in item.keywords:
             item.add_marker(skip_regression)

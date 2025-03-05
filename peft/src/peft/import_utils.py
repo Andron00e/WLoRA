@@ -37,7 +37,9 @@ def is_bnb_4bit_available() -> bool:
 def is_auto_gptq_available():
     if importlib.util.find_spec("auto_gptq") is not None:
         AUTOGPTQ_MINIMUM_VERSION = packaging.version.parse("0.5.0")
-        version_autogptq = packaging.version.parse(importlib_metadata.version("auto_gptq"))
+        version_autogptq = packaging.version.parse(
+            importlib_metadata.version("auto_gptq")
+        )
         if AUTOGPTQ_MINIMUM_VERSION <= version_autogptq:
             return True
         else:

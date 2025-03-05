@@ -12,36 +12,28 @@ from typing import Any, Dict, List, Union
 
 # datasets imports
 import datasets
-
 # metric imports
 import evaluate
 import numpy as np
 import torch
 import transformers
 import wandb
-
 # accelerate imports
 from accelerate import Accelerator, dispatch_model
 from accelerate.logging import get_logger
-from datasets import Audio, DatasetDict, IterableDatasetDict, interleave_datasets, load_dataset
-
+from datasets import (Audio, DatasetDict, IterableDatasetDict,
+                      interleave_datasets, load_dataset)
 # hf imports
 from huggingface_hub import HfApi
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import (
-    BitsAndBytesConfig,
-    SchedulerType,
-    WhisperForConditionalGeneration,
-    WhisperProcessor,
-    get_scheduler,
-    set_seed,
-)
+from transformers import (BitsAndBytesConfig, SchedulerType,
+                          WhisperForConditionalGeneration, WhisperProcessor,
+                          get_scheduler, set_seed)
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 
 # peft imports
 from peft import AdaLoraConfig, LoraConfig, PeftModel, get_peft_model
-
 
 logger = get_logger(__name__, log_level="INFO")
 
@@ -54,10 +46,24 @@ def parse_args():
         help="Path to pretrained model or model identifier from huggingface.co/models.",
         required=True,
     )
-    parser.add_argument("--language", type=str, help="Language to use for training; e.g., 'Hindi' ", required=True)
-    parser.add_argument("--language_abbr", type=str, help="Language to use for training; e.g., 'hi' ", required=True)
     parser.add_argument(
-        "--task", type=str, default="transcribe", help="Task to use for training; e.g., 'transcribe' ", required=False
+        "--language",
+        type=str,
+        help="Language to use for training; e.g., 'Hindi' ",
+        required=True,
+    )
+    parser.add_argument(
+        "--language_abbr",
+        type=str,
+        help="Language to use for training; e.g., 'hi' ",
+        required=True,
+    )
+    parser.add_argument(
+        "--task",
+        type=str,
+        default="transcribe",
+        help="Task to use for training; e.g., 'transcribe' ",
+        required=False,
     )
     parser.add_argument(
         "--dataset_name",
@@ -72,16 +78,32 @@ def parse_args():
         help="Whether to use streaming mode for the dataset.",
     )
     parser.add_argument(
-        "--do_lower_case", action="store_true", help="lowercase the transcribed text before tokenizing"
+        "--do_lower_case",
+        action="store_true",
+        help="lowercase the transcribed text before tokenizing",
     )
     parser.add_argument(
-        "--do_remove_punctuation", action="store_true", help="remove punctuation from the transcribed text"
+        "--do_remove_punctuation",
+        action="store_true",
+        help="remove punctuation from the transcribed text",
     )
-    parser.add_argument("--push_to_hub", action="store_true", help="Whether or not to push the model to the Hub.")
     parser.add_argument(
-        "--overwrite_cache", type=bool, default=False, help="Overwrite the cached training and evaluation sets"
+        "--push_to_hub",
+        action="store_true",
+        help="Whether or not to push the model to the Hub.",
     )
-    parser.add_argument("--max_audio_input_length", type=float, default=30.0, help="Maximum audio length in seconds.")
+    parser.add_argument(
+        "--overwrite_cache",
+        type=bool,
+        default=False,
+        help="Overwrite the cached training and evaluation sets",
+    )
+    parser.add_argument(
+        "--max_audio_input_length",
+        type=float,
+        default=30.0,
+        help="Maximum audio length in seconds.",
+    )
     parser.add_argument(
         "--preprocessing_num_workers",
         type=int,
@@ -123,8 +145,15 @@ def parse_args():
         default=5e-5,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
-    parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay to use.")
-    parser.add_argument("--num_train_epochs", type=int, default=3, help="Total number of training epochs to perform.")
+    parser.add_argument(
+        "--weight_decay", type=float, default=0.0, help="Weight decay to use."
+    )
+    parser.add_argument(
+        "--num_train_epochs",
+        type=int,
+        default=3,
+        help="Total number of training epochs to perform.",
+    )
     parser.add_argument(
         "--max_train_steps",
         type=int,
@@ -142,13 +171,27 @@ def parse_args():
         type=SchedulerType,
         default="linear",
         help="The scheduler type to use.",
-        choices=["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"],
+        choices=[
+            "linear",
+            "cosine",
+            "cosine_with_restarts",
+            "polynomial",
+            "constant",
+            "constant_with_warmup",
+        ],
     )
     parser.add_argument(
-        "--num_warmup_steps", type=int, default=0, help="Number of steps for the warmup in the lr scheduler."
+        "--num_warmup_steps",
+        type=int,
+        default=0,
+        help="Number of steps for the warmup in the lr scheduler.",
     )
-    parser.add_argument("--output_dir", type=str, default=None, help="Where to store the final model.")
-    parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
+    parser.add_argument(
+        "--output_dir", type=str, default=None, help="Where to store the final model."
+    )
+    parser.add_argument(
+        "--seed", type=int, default=None, help="A seed for reproducible training."
+    )
     parser.add_argument(
         "--load_best_model",
         action="store_true",
@@ -169,9 +212,13 @@ def parse_args():
             "Only applicable when `--with_tracking` is passed."
         ),
     )
-    parser.add_argument("--hub_token", type=str, help="The token to use to push to the Model Hub.")
     parser.add_argument(
-        "--hub_model_id", type=str, help="The name of the repository to keep in sync with the local `output_dir`."
+        "--hub_token", type=str, help="The token to use to push to the Model Hub."
+    )
+    parser.add_argument(
+        "--hub_model_id",
+        type=str,
+        help="The name of the repository to keep in sync with the local `output_dir`.",
     )
     parser.add_argument(
         "--checkpointing_steps",
@@ -272,7 +319,9 @@ def parse_args():
     args = parser.parse_args()
 
     if args.push_to_hub:
-        assert args.output_dir is not None, "Need an `output_dir` to create a repo when `--push_to_hub` is passed."
+        assert (
+            args.output_dir is not None
+        ), "Need an `output_dir` to create a repo when `--push_to_hub` is passed."
 
     return args
 
@@ -281,7 +330,13 @@ def load_streaming_dataset(dataset_name, dataset_config_name, split, **kwargs):
     if "+" in split:
         # load multiple splits separated by the `+` symbol *with* streaming mode
         dataset_splits = [
-            load_dataset(dataset_name, dataset_config_name, split=split_name, streaming=True, **kwargs)
+            load_dataset(
+                dataset_name,
+                dataset_config_name,
+                split=split_name,
+                streaming=True,
+                **kwargs,
+            )
             for split_name in split.split("+")
         ]
         # interleave multiple splits to form one dataset
@@ -289,11 +344,15 @@ def load_streaming_dataset(dataset_name, dataset_config_name, split, **kwargs):
         return interleaved_dataset
     else:
         # load a single split *with* streaming mode
-        dataset = load_dataset(dataset_name, dataset_config_name, split=split, streaming=True, **kwargs)
+        dataset = load_dataset(
+            dataset_name, dataset_config_name, split=split, streaming=True, **kwargs
+        )
         return dataset
 
 
-def prepare_dataset_wrapper(do_lower_case, do_remove_punctuation, processor, normalizer):
+def prepare_dataset_wrapper(
+    do_lower_case, do_remove_punctuation, processor, normalizer
+):
     def prepare_dataset(batch):
         # load and (possibly) resample audio data to 16kHz
         audio = batch["audio"]
@@ -337,11 +396,17 @@ def load_model_hook(models, input_dir):
 class DataCollatorSpeechSeq2SeqWithPadding:
     processor: Any
 
-    def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
+    def __call__(
+        self, features: List[Dict[str, Union[List[int], torch.Tensor]]]
+    ) -> Dict[str, torch.Tensor]:
         # split inputs and labels since they have to be of different lengths and need different padding methods
         # first treat the audio inputs by simply returning torch tensors
-        input_features = [{"input_features": feature["input_features"]} for feature in features]
-        batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+        input_features = [
+            {"input_features": feature["input_features"]} for feature in features
+        ]
+        batch = self.processor.feature_extractor.pad(
+            input_features, return_tensors="pt"
+        )
 
         # get the tokenized label sequences
         label_features = [{"input_ids": feature["labels"]} for feature in features]
@@ -349,7 +414,9 @@ class DataCollatorSpeechSeq2SeqWithPadding:
         labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
 
         # replace padding with -100 to ignore loss correctly
-        labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
+        labels = labels_batch["input_ids"].masked_fill(
+            labels_batch.attention_mask.ne(1), -100
+        )
 
         # if bos token is appended in previous tokenization step,
         # cut bos token here as it's append later anyways
@@ -368,7 +435,15 @@ def get_audio_length_processor(max_input_length):
     return is_audio_in_length_range
 
 
-def evaluation_loop(model, eval_dataloader, processor, normalizer, metric, forced_decoder_ids, accelerator):
+def evaluation_loop(
+    model,
+    eval_dataloader,
+    processor,
+    normalizer,
+    metric,
+    forced_decoder_ids,
+    accelerator,
+):
     model.eval()
     predictions = []
     references = []
@@ -387,17 +462,29 @@ def evaluation_loop(model, eval_dataloader, processor, normalizer, metric, force
                     .numpy()
                 )
                 labels = batch["labels"].cpu().numpy()
-                labels = np.where(labels != -100, labels, processor.tokenizer.pad_token_id)
-                decoded_preds = processor.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-                decoded_labels = processor.tokenizer.batch_decode(labels, skip_special_tokens=True)
+                labels = np.where(
+                    labels != -100, labels, processor.tokenizer.pad_token_id
+                )
+                decoded_preds = processor.tokenizer.batch_decode(
+                    generated_tokens, skip_special_tokens=True
+                )
+                decoded_labels = processor.tokenizer.batch_decode(
+                    labels, skip_special_tokens=True
+                )
                 predictions.extend(decoded_preds)
                 references.extend(decoded_labels)
-                normalized_predictions.extend([normalizer(pred).strip() for pred in decoded_preds])
-                normalized_references.extend([normalizer(label).strip() for label in decoded_labels])
+                normalized_predictions.extend(
+                    [normalizer(pred).strip() for pred in decoded_preds]
+                )
+                normalized_references.extend(
+                    [normalizer(label).strip() for label in decoded_labels]
+                )
             del generated_tokens, labels, batch
         gc.collect()
     wer = 100 * metric.compute(predictions=predictions, references=references)
-    normalized_wer = 100 * metric.compute(predictions=normalized_predictions, references=normalized_references)
+    normalized_wer = 100 * metric.compute(
+        predictions=normalized_predictions, references=normalized_references
+    )
     eval_metrics = {"eval/wer": wer, "eval/normalized_wer": normalized_wer}
     if accelerator.get_tracker("wandb"):
         sample_size = min(len(predictions), 256)
@@ -409,11 +496,19 @@ def evaluation_loop(model, eval_dataloader, processor, normalizer, metric, force
         table_rows = [
             list(r)
             for r in zip(
-                sample_predictions, sample_references, sample_normalized_predictions, sample_normalized_references
+                sample_predictions,
+                sample_references,
+                sample_normalized_predictions,
+                sample_normalized_references,
             )
         ]
         eval_metrics["eval_samples"] = wandb.Table(
-            columns=["predictions", "references", "normalized_predictions", "normalized_references"],
+            columns=[
+                "predictions",
+                "references",
+                "normalized_predictions",
+                "normalized_references",
+            ],
             rows=table_rows,
         )
     return eval_metrics
@@ -422,7 +517,9 @@ def evaluation_loop(model, eval_dataloader, processor, normalizer, metric, force
 def main():
     args = parse_args()
 
-    accelerator_kwargs = {"gradient_accumulation_steps": args.gradient_accumulation_steps}
+    accelerator_kwargs = {
+        "gradient_accumulation_steps": args.gradient_accumulation_steps
+    }
     if args.with_tracking:
         accelerator_kwargs["log_with"] = args.report_to
         accelerator_kwargs["project_dir"] = args.output_dir
@@ -467,9 +564,13 @@ def main():
     accelerator.wait_for_everyone()
 
     # load dataset either in streaming mode or not
-    processor = WhisperProcessor.from_pretrained(args.model_name_or_path, language=args.language, task=args.task)
+    processor = WhisperProcessor.from_pretrained(
+        args.model_name_or_path, language=args.language, task=args.task
+    )
     normalizer = BasicTextNormalizer()
-    prepare_dataset = prepare_dataset_wrapper(args.do_lower_case, args.do_remove_punctuation, processor, normalizer)
+    prepare_dataset = prepare_dataset_wrapper(
+        args.do_lower_case, args.do_remove_punctuation, processor, normalizer
+    )
     is_audio_in_length_range = get_audio_length_processor(args.max_audio_input_length)
     data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor)
 
@@ -490,7 +591,9 @@ def main():
     raw_datasets["train"] = loading_method(
         args.dataset_name, args.language_abbr, split=train_split, use_auth_token=True
     )
-    raw_datasets["test"] = loading_method(args.dataset_name, args.language_abbr, split=test_split, use_auth_token=True)
+    raw_datasets["test"] = loading_method(
+        args.dataset_name, args.language_abbr, split=test_split, use_auth_token=True
+    )
     raw_datasets = raw_datasets.cast_column("audio", Audio(sampling_rate=16000))
 
     logger.info("Dataset loaded: %s", raw_datasets)
@@ -536,7 +639,8 @@ def main():
 
     # model
     model = WhisperForConditionalGeneration.from_pretrained(
-        args.model_name_or_path, quantization_config=BitsAndBytesConfig(load_in_8bit=True)
+        args.model_name_or_path,
+        quantization_config=BitsAndBytesConfig(load_in_8bit=True),
     )
     model.config.forced_decoder_ids = None
     model.config.suppress_tokens = []
@@ -594,13 +698,19 @@ def main():
         model.print_trainable_parameters()
 
     # optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
+    )
 
     if args.max_train_steps is None:
-        num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+        num_update_steps_per_epoch = math.ceil(
+            len(train_dataloader) / args.gradient_accumulation_steps
+        )
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
     else:
-        args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
+        args.num_train_epochs = math.ceil(
+            args.max_train_steps / num_update_steps_per_epoch
+        )
 
     # scheduler
     lr_scheduler = get_scheduler(
@@ -611,8 +721,10 @@ def main():
     )
 
     # Prepare everything with our `accelerator`.
-    model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = accelerator.prepare(
-        model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
+    model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = (
+        accelerator.prepare(
+            model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
+        )
     )
 
     accelerator.print(model)
@@ -629,29 +741,45 @@ def main():
         run_name = f"run-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         experiment_config = vars(args)
         # TensorBoard cannot log Enums, need the raw value
-        experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
+        experiment_config["lr_scheduler_type"] = experiment_config[
+            "lr_scheduler_type"
+        ].value
         accelerator.init_trackers(
-            "Whisper PEFT Fine-Tuning", config=experiment_config, init_kwargs={"wandb": {"name": run_name}}
+            "Whisper PEFT Fine-Tuning",
+            config=experiment_config,
+            init_kwargs={"wandb": {"name": run_name}},
         )
 
     # saving and loading checkpoints for resuming training
     accelerator.register_save_state_pre_hook(save_model_hook)
     accelerator.register_load_state_pre_hook(load_model_hook)
 
-    total_batch_size = args.per_device_train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
+    total_batch_size = (
+        args.per_device_train_batch_size
+        * accelerator.num_processes
+        * args.gradient_accumulation_steps
+    )
     logger.info("***** Running training *****")
     logger.info(f"  Num Epochs = {args.num_train_epochs}")
-    logger.info(f"  Instantaneous batch size per device = {args.per_device_train_batch_size}")
-    logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
+    logger.info(
+        f"  Instantaneous batch size per device = {args.per_device_train_batch_size}"
+    )
+    logger.info(
+        f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}"
+    )
     logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
     # Only show the progress bar once on each machine.
-    progress_bar = tqdm(range(args.max_train_steps), disable=not accelerator.is_local_main_process)
+    progress_bar = tqdm(
+        range(args.max_train_steps), disable=not accelerator.is_local_main_process
+    )
     global_step = 0
     starting_epoch = 0
     best_metric = None
     resume_step = 0
-    forced_decoder_ids = processor.get_decoder_prompt_ids(language=args.language, task=args.task)
+    forced_decoder_ids = processor.get_decoder_prompt_ids(
+        language=args.language, task=args.task
+    )
 
     # Potentially load in the weights and states from a previous save
     if args.resume_from_checkpoint:
@@ -669,7 +797,9 @@ def main():
         if args.with_tracking:
             total_loss = 0
             running_loss = 0
-        for step, batch in enumerate(accelerator.skip_first_batches(train_dataloader, num_batches=resume_step)):
+        for step, batch in enumerate(
+            accelerator.skip_first_batches(train_dataloader, num_batches=resume_step)
+        ):
             with accelerator.accumulate(model):
                 outputs = model(**batch)
                 loss = outputs.loss
@@ -700,19 +830,30 @@ def main():
 
             if global_step % args.logging_steps == 0:
                 if args.with_tracking:
-                    accelerator.log({"train/running_loss": running_loss / args.logging_steps}, step=global_step)
+                    accelerator.log(
+                        {"train/running_loss": running_loss / args.logging_steps},
+                        step=global_step,
+                    )
                     running_loss = 0
 
             if global_step % args.evaluation_steps == 0:
                 eval_metrics = evaluation_loop(
-                    model, eval_dataloader, processor, normalizer, metric, forced_decoder_ids, accelerator
+                    model,
+                    eval_dataloader,
+                    processor,
+                    normalizer,
+                    metric,
+                    forced_decoder_ids,
+                    accelerator,
                 )
                 if args.with_tracking:
                     logger.info(f"Step {global_step} eval metrics: {eval_metrics}")
                     accelerator.log(eval_metrics, step=global_step)
                 if best_metric is None or eval_metrics["eval/wer"] < best_metric:
                     best_metric = eval_metrics["eval/wer"]
-                    accelerator.save_state(os.path.join(args.output_dir, "best_checkpoint"))
+                    accelerator.save_state(
+                        os.path.join(args.output_dir, "best_checkpoint")
+                    )
                 model.train()
 
             if global_step >= args.max_train_steps:
@@ -726,10 +867,18 @@ def main():
         if args.push_to_hub and epoch <= args.num_train_epochs - 1:
             accelerator.wait_for_everyone()
             unwrapped_model = accelerator.unwrap_model(model)
-            unwrapped_model.save_pretrained(args.output_dir, is_main_process=accelerator.is_main_process)
+            unwrapped_model.save_pretrained(
+                args.output_dir, is_main_process=accelerator.is_main_process
+            )
             # evaluate the model at the end of training
             eval_metrics = evaluation_loop(
-                model, eval_dataloader, processor, normalizer, metric, forced_decoder_ids, accelerator
+                model,
+                eval_dataloader,
+                processor,
+                normalizer,
+                metric,
+                forced_decoder_ids,
+                accelerator,
             )
             if args.with_tracking:
                 logger.info(f"Step {global_step} eval metrics: {eval_metrics}")
@@ -750,9 +899,17 @@ def main():
     if args.load_best_model:
         # load the best model
         accelerator.load_state(os.path.join(args.output_dir, "best_checkpoint"))
-        model.resize_modules_by_rank_pattern(model.peft_config["default"].rank_pattern, "default")
+        model.resize_modules_by_rank_pattern(
+            model.peft_config["default"].rank_pattern, "default"
+        )
         eval_metrics = evaluation_loop(
-            model, eval_dataloader, processor, normalizer, metric, forced_decoder_ids, accelerator
+            model,
+            eval_dataloader,
+            processor,
+            normalizer,
+            metric,
+            forced_decoder_ids,
+            accelerator,
         )
         if args.with_tracking:
             best_metrics = {"best_" + k: v for k, v in eval_metrics.items()}
@@ -760,7 +917,9 @@ def main():
 
     accelerator.wait_for_everyone()
     unwrapped_model = accelerator.unwrap_model(model)
-    unwrapped_model.save_pretrained(args.output_dir, is_main_process=accelerator.is_main_process)
+    unwrapped_model.save_pretrained(
+        args.output_dir, is_main_process=accelerator.is_main_process
+    )
     if accelerator.is_main_process:
         processor.tokenizer.save_pretrained(args.output_dir)
         if args.push_to_hub:

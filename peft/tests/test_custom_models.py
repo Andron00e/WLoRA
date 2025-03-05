@@ -29,32 +29,19 @@ import torch
 from parameterized import parameterized
 from safetensors.torch import load_file as safe_load_file
 from torch import nn
-from transformers import AutoModelForCausalLM, AutoModelForSequenceClassification
+from transformers import (AutoModelForCausalLM,
+                          AutoModelForSequenceClassification)
 from transformers.pytorch_utils import Conv1D
 
-from peft import (
-    AdaLoraConfig,
-    BOFTConfig,
-    FourierFTConfig,
-    HRAConfig,
-    IA3Config,
-    LNTuningConfig,
-    LoHaConfig,
-    LoKrConfig,
-    LoraConfig,
-    OFTConfig,
-    PeftModel,
-    TaskType,
-    VBLoRAConfig,
-    VeraConfig,
-    get_peft_model,
-)
+from peft import (AdaLoraConfig, BOFTConfig, FourierFTConfig, HRAConfig,
+                  IA3Config, LNTuningConfig, LoHaConfig, LoKrConfig,
+                  LoraConfig, OFTConfig, PeftModel, TaskType, VBLoRAConfig,
+                  VeraConfig, get_peft_model)
 from peft.tuners.tuners_utils import BaseTunerLayer
 from peft.utils import infer_device
 
 from .testing_common import PeftCommonTester
 from .testing_utils import get_state_dict, require_non_cpu
-
 
 # MLP is a vanilla FF network with only linear layers
 # EmbConv1D has an embedding and a Conv1D layer
@@ -67,7 +54,12 @@ TEST_CASES = [
     ("Vanilla MLP 2 LoRA", "MLP", LoraConfig, {"target_modules": ["lin0"]}),
     ("Vanilla MLP 3 LoRA", "MLP", LoraConfig, {"target_modules": ["lin1"]}),
     ("Vanilla MLP 4 LoRA", "MLP", LoraConfig, {"target_modules": ["lin0", "lin1"]}),
-    ("Vanilla MLP 5 LoRA", "MLP", LoraConfig, {"target_modules": ["lin0"], "modules_to_save": ["lin1"]}),
+    (
+        "Vanilla MLP 5 LoRA",
+        "MLP",
+        LoraConfig,
+        {"target_modules": ["lin0"], "modules_to_save": ["lin1"]},
+    ),
     (
         "Vanilla MLP 6 LoRA",
         "MLP",
@@ -78,24 +70,54 @@ TEST_CASES = [
             "lora_dropout": 0.1,
         },
     ),
-    ("Vanilla MLP 7 LoRA with DoRA", "MLP", LoraConfig, {"target_modules": ["lin0"], "use_dora": True}),
-    ("Vanilla MLP 8 LoRA with DoRA", "MLP", LoraConfig, {"target_modules": ["lin0", "lin1"], "use_dora": True}),
+    (
+        "Vanilla MLP 7 LoRA with DoRA",
+        "MLP",
+        LoraConfig,
+        {"target_modules": ["lin0"], "use_dora": True},
+    ),
+    (
+        "Vanilla MLP 8 LoRA with DoRA",
+        "MLP",
+        LoraConfig,
+        {"target_modules": ["lin0", "lin1"], "use_dora": True},
+    ),
     (
         "Vanilla MLP 9 LoRA with DoRA",
         "MLP",
         LoraConfig,
         {"target_modules": "lin1", "use_dora": True, "lora_alpha": 32},
     ),
-    ("Embedding + transformers Conv1D 1 LoRA", "EmbConv1D", LoraConfig, {"target_modules": ["conv1d"]}),
-    ("Embedding + transformers Conv1D 2 LoRA", "EmbConv1D", LoraConfig, {"target_modules": ["emb"]}),
-    ("Embedding + transformers Conv1D 3 LoRA", "EmbConv1D", LoraConfig, {"target_modules": ["emb", "conv1d"]}),
+    (
+        "Embedding + transformers Conv1D 1 LoRA",
+        "EmbConv1D",
+        LoraConfig,
+        {"target_modules": ["conv1d"]},
+    ),
+    (
+        "Embedding + transformers Conv1D 2 LoRA",
+        "EmbConv1D",
+        LoraConfig,
+        {"target_modules": ["emb"]},
+    ),
+    (
+        "Embedding + transformers Conv1D 3 LoRA",
+        "EmbConv1D",
+        LoraConfig,
+        {"target_modules": ["emb", "conv1d"]},
+    ),
     (
         "Embedding + transformers Conv1D 1 DoRA",
         "EmbConv1D",
         LoraConfig,
         {"target_modules": ["conv1d"], "use_dora": True},
     ),
-    ("Embedding + transformers Conv1D 2 DoRA", "EmbConv1D", LoraConfig, {"target_modules": ["emb"], "use_dora": True}),
+    (
+        "Embedding + transformers Conv1D 2 DoRA",
+        "EmbConv1D",
+        LoraConfig,
+        {"target_modules": ["emb"], "use_dora": True},
+    ),
     (
         "Embedding + transformers Conv1D 3 DoRA",
         "EmbConv1D",
@@ -104,17 +126,57 @@ TEST_CASES = [
     ),
     ("Conv2d 1 LoRA", "Conv2d", LoraConfig, {"target_modules": ["conv2d"]}),
     ("Conv2d 2 LoRA", "Conv2d", LoraConfig, {"target_modules": ["conv2d", "lin0"]}),
-    ("Conv2d 1 LoRA with DoRA", "Conv2d", LoraConfig, {"target_modules": ["conv2d"], "use_dora": True}),
-    ("Conv2d 2 LoRA with DoRA", "Conv2d", LoraConfig, {"target_modules": ["conv2d", "lin0"], "use_dora": True}),
+    (
+        "Conv2d 1 LoRA with DoRA",
+        "Conv2d",
+        LoraConfig,
+        {"target_modules": ["conv2d"], "use_dora": True},
+    ),
+    (
+        "Conv2d 2 LoRA with DoRA",
+        "Conv2d",
+        LoraConfig,
+        {"target_modules": ["conv2d", "lin0"], "use_dora": True},
+    ),
     #######
     # IA³ #
     #######
-    ("Vanilla MLP 1 IA3", "MLP", IA3Config, {"target_modules": "lin0", "feedforward_modules": []}),
-    ("Vanilla MLP 2 IA3", "MLP", IA3Config, {"target_modules": "lin0", "feedforward_modules": "lin0"}),
-    ("Vanilla MLP 3 IA3", "MLP", IA3Config, {"target_modules": ["lin0"], "feedforward_modules": []}),
-    ("Vanilla MLP 4 IA3", "MLP", IA3Config, {"target_modules": ["lin0"], "feedforward_modules": ["lin0"]}),
-    ("Vanilla MLP 5 IA3", "MLP", IA3Config, {"target_modules": ["lin1"], "feedforward_modules": []}),
-    ("Vanilla MLP 6 IA3", "MLP", IA3Config, {"target_modules": ["lin1"], "feedforward_modules": ["lin1"]}),
+    (
+        "Vanilla MLP 1 IA3",
+        "MLP",
+        IA3Config,
+        {"target_modules": "lin0", "feedforward_modules": []},
+    ),
+    (
+        "Vanilla MLP 2 IA3",
+        "MLP",
+        IA3Config,
+        {"target_modules": "lin0", "feedforward_modules": "lin0"},
+    ),
+    (
+        "Vanilla MLP 3 IA3",
+        "MLP",
+        IA3Config,
+        {"target_modules": ["lin0"], "feedforward_modules": []},
+    ),
+    (
+        "Vanilla MLP 4 IA3",
+        "MLP",
+        IA3Config,
+        {"target_modules": ["lin0"], "feedforward_modules": ["lin0"]},
+    ),
+    (
+        "Vanilla MLP 5 IA3",
+        "MLP",
+        IA3Config,
+        {"target_modules": ["lin1"], "feedforward_modules": []},
+    ),
+    (
+        "Vanilla MLP 6 IA3",
+        "MLP",
+        IA3Config,
+        {"target_modules": ["lin1"], "feedforward_modules": ["lin1"]},
+    ),
     (
         "Vanilla MLP 7 IA3",
         "MLP",
@@ -131,7 +193,11 @@ TEST_CASES = [
         "Vanilla MLP 9 IA3",
         "MLP",
         IA3Config,
-        {"target_modules": ["lin0"], "modules_to_save": ["lin1"], "feedforward_modules": ["lin0"]},
+        {
+            "target_modules": ["lin0"],
+            "modules_to_save": ["lin1"],
+            "feedforward_modules": ["lin0"],
+        },
     ),
     (
         "transformers Conv1D 1 IA3",
@@ -143,16 +209,33 @@ TEST_CASES = [
         "transformers Conv1D 2 IA3",
         "EmbConv1D",
         IA3Config,
-        {"target_modules": ["conv1d", "lin0"], "feedforward_modules": ["conv1d", "lin0"]},
+        {
+            "target_modules": ["conv1d", "lin0"],
+            "feedforward_modules": ["conv1d", "lin0"],
+        },
     ),
     (
         "transformers Conv1D 1 IA3",
         "EmbConv1D",
         IA3Config,
-        {"target_modules": ["conv1d"], "feedforward_modules": ["conv1d"], "modules_to_save": ["lin1"]},
+        {
+            "target_modules": ["conv1d"],
+            "feedforward_modules": ["conv1d"],
+            "modules_to_save": ["lin1"],
+        },
     ),
-    ("Conv2d 1 IA3", "Conv2d", IA3Config, {"target_modules": ["conv2d"], "feedforward_modules": []}),
-    ("Conv2d 2 IA3", "Conv2d", IA3Config, {"target_modules": ["conv2d"], "feedforward_modules": ["conv2d"]}),
+    (
+        "Conv2d 1 IA3",
+        "Conv2d",
+        IA3Config,
+        {"target_modules": ["conv2d"], "feedforward_modules": []},
+    ),
+    (
+        "Conv2d 2 IA3",
+        "Conv2d",
+        IA3Config,
+        {"target_modules": ["conv2d"], "feedforward_modules": ["conv2d"]},
+    ),
     (
         "Conv2d 3 IA3",
         "Conv2d",
@@ -169,7 +252,10 @@ TEST_CASES = [
         "Conv2d 5 IA3",
         "Conv2d",
         IA3Config,
-        {"target_modules": ["conv2d", "lin0"], "feedforward_modules": ["conv2d", "lin0"]},
+        {
+            "target_modules": ["conv2d", "lin0"],
+            "feedforward_modules": ["conv2d", "lin0"],
+        },
     ),
     ########
     # LoHa #
@@ -178,7 +264,12 @@ TEST_CASES = [
     ("Vanilla MLP 2 LOHA", "MLP", LoHaConfig, {"target_modules": ["lin0"]}),
     ("Vanilla MLP 3 LOHA", "MLP", LoHaConfig, {"target_modules": ["lin1"]}),
     ("Vanilla MLP 4 LOHA", "MLP", LoHaConfig, {"target_modules": ["lin0", "lin1"]}),
-    ("Vanilla MLP 5 LOHA", "MLP", LoHaConfig, {"target_modules": ["lin0"], "modules_to_save": ["lin1"]}),
+    (
+        "Vanilla MLP 5 LOHA",
+        "MLP",
+        LoHaConfig,
+        {"target_modules": ["lin0"], "modules_to_save": ["lin1"]},
+    ),
     (
         "Vanilla MLP 6 LOHA",
         "MLP",
@@ -189,17 +280,37 @@ TEST_CASES = [
             "module_dropout": 0.1,
         },
     ),
-    ("Vanilla MLP 7 LOHA", "MLP", LoHaConfig, {"target_modules": "lin0", "rank_dropout": 0.5}),
+    (
+        "Vanilla MLP 7 LOHA",
+        "MLP",
+        LoHaConfig,
+        {"target_modules": "lin0", "rank_dropout": 0.5},
+    ),
     ("Conv2d 1 LOHA", "Conv2d", LoHaConfig, {"target_modules": ["conv2d"]}),
     ("Conv2d 2 LOHA", "Conv2d", LoHaConfig, {"target_modules": ["conv2d", "lin0"]}),
-    ("Conv2d 3 LOHA", "Conv2d", LoHaConfig, {"target_modules": ["conv2d"], "use_effective_conv2d": True}),
-    ("Conv2d 4 LOHA", "Conv2d", LoHaConfig, {"target_modules": ["conv2d", "lin0"], "use_effective_conv2d": True}),
+    (
+        "Conv2d 3 LOHA",
+        "Conv2d",
+        LoHaConfig,
+        {"target_modules": ["conv2d"], "use_effective_conv2d": True},
+    ),
+    (
+        "Conv2d 4 LOHA",
+        "Conv2d",
+        LoHaConfig,
+        {"target_modules": ["conv2d", "lin0"], "use_effective_conv2d": True},
+    ),
     # LoKr
     ("Vanilla MLP 1 LOKR", "MLP", LoKrConfig, {"target_modules": "lin0"}),
     ("Vanilla MLP 2 LOKR", "MLP", LoKrConfig, {"target_modules": ["lin0"]}),
     ("Vanilla MLP 3 LOKR", "MLP", LoKrConfig, {"target_modules": ["lin1"]}),
     ("Vanilla MLP 4 LOKR", "MLP", LoKrConfig, {"target_modules": ["lin0", "lin1"]}),
-    ("Vanilla MLP 5 LOKR", "MLP", LoKrConfig, {"target_modules": ["lin0"], "modules_to_save": ["lin1"]}),
+    (
+        "Vanilla MLP 5 LOKR",
+        "MLP",
+        LoKrConfig,
+        {"target_modules": ["lin0"], "modules_to_save": ["lin1"]},
+    ),
     (
         "Vanilla MLP 6 LOKR",
         "MLP",
@@ -210,23 +321,51 @@ TEST_CASES = [
             "module_dropout": 0.1,
         },
     ),
-    ("Vanilla MLP 7 LOKR", "MLP", LoKrConfig, {"target_modules": "lin0", "rank_dropout": 0.5}),
-    ("Vanilla MLP 8 LOKR", "MLP", LoKrConfig, {"target_modules": "lin0", "decompose_both": True, "r": 1, "alpha": 1}),
+    (
+        "Vanilla MLP 7 LOKR",
+        "MLP",
+        LoKrConfig,
+        {"target_modules": "lin0", "rank_dropout": 0.5},
+    ),
+    (
+        "Vanilla MLP 8 LOKR",
+        "MLP",
+        LoKrConfig,
+        {"target_modules": "lin0", "decompose_both": True, "r": 1, "alpha": 1},
+    ),
     ("Conv2d 1 LOKR", "Conv2d", LoKrConfig, {"target_modules": ["conv2d"]}),
     ("Conv2d 2 LOKR", "Conv2d", LoKrConfig, {"target_modules": ["conv2d", "lin0"]}),
-    ("Conv2d 3 LOKR", "Conv2d", LoKrConfig, {"target_modules": ["conv2d"], "use_effective_conv2d": True}),
-    ("Conv2d 4 LOKR", "Conv2d", LoKrConfig, {"target_modules": ["conv2d", "lin0"], "use_effective_conv2d": True}),
+    (
+        "Conv2d 3 LOKR",
+        "Conv2d",
+        LoKrConfig,
+        {"target_modules": ["conv2d"], "use_effective_conv2d": True},
+    ),
+    (
+        "Conv2d 4 LOKR",
+        "Conv2d",
+        LoKrConfig,
+        {"target_modules": ["conv2d", "lin0"], "use_effective_conv2d": True},
+    ),
     (
         "Conv2d 5 LOKR",
         "Conv2d",
         LoKrConfig,
-        {"target_modules": ["conv2d", "lin0"], "use_effective_conv2d": True, "decompose_both": True},
+        {
+            "target_modules": ["conv2d", "lin0"],
+            "use_effective_conv2d": True,
+            "decompose_both": True,
+        },
     ),
     (
         "Conv2d 6 LOKR",
         "Conv2d",
         LoKrConfig,
-        {"target_modules": ["conv2d", "lin0"], "use_effective_conv2d": True, "decompose_factor": 4},
+        {
+            "target_modules": ["conv2d", "lin0"],
+            "use_effective_conv2d": True,
+            "decompose_factor": 4,
+        },
     ),
     (
         "Conv2d 7 LOKR",
@@ -244,7 +383,12 @@ TEST_CASES = [
     ########
     ("Vanilla MLP 1 OFT", "MLP", OFTConfig, {"target_modules": "lin0"}),
     ("Vanilla MLP 2 OFT", "MLP", OFTConfig, {"target_modules": ["lin0"]}),
-    ("Vanilla MLP 5 OFT", "MLP", OFTConfig, {"target_modules": ["lin0"], "modules_to_save": ["lin1"]}),
+    (
+        "Vanilla MLP 5 OFT",
+        "MLP",
+        OFTConfig,
+        {"target_modules": ["lin0"], "modules_to_save": ["lin1"]},
+    ),
     (
         "Vanilla MLP 6 OFT",
         "MLP",
@@ -255,25 +399,60 @@ TEST_CASES = [
         },
     ),
     ("Vanilla MLP 7 OFT", "MLP", OFTConfig, {"target_modules": ["lin0"], "coft": True}),
-    ("Vanilla MLP 8 OFT", "MLP", OFTConfig, {"target_modules": ["lin0"], "block_share": True}),
-    ("Vanilla MLP 9 OFT", "MLP", OFTConfig, {"target_modules": ["lin0"], "coft": True, "block_share": True}),
+    (
+        "Vanilla MLP 8 OFT",
+        "MLP",
+        OFTConfig,
+        {"target_modules": ["lin0"], "block_share": True},
+    ),
+    (
+        "Vanilla MLP 9 OFT",
+        "MLP",
+        OFTConfig,
+        {"target_modules": ["lin0"], "coft": True, "block_share": True},
+    ),
     ("Conv2d 1 OFT", "Conv2d", OFTConfig, {"target_modules": ["conv2d"]}),
     ("Conv2d 3 OFT", "Conv2d", OFTConfig, {"target_modules": ["conv2d"], "coft": True}),
-    ("Conv2d 4 OFT", "Conv2d", OFTConfig, {"target_modules": ["conv2d"], "block_share": True}),
-    ("Conv2d 5 OFT", "Conv2d", OFTConfig, {"target_modules": ["conv2d"], "coft": True, "block_share": True}),
+    (
+        "Conv2d 4 OFT",
+        "Conv2d",
+        OFTConfig,
+        {"target_modules": ["conv2d"], "block_share": True},
+    ),
+    (
+        "Conv2d 5 OFT",
+        "Conv2d",
+        OFTConfig,
+        {"target_modules": ["conv2d"], "coft": True, "block_share": True},
+    ),
     ########
     # HRA #
     ########
     ("Vanilla MLP 1 HRA", "MLP", HRAConfig, {"target_modules": "lin0"}),
     ("Vanilla MLP 2 HRA", "MLP", HRAConfig, {"target_modules": ["lin0"]}),
     ("Vanilla MLP 3 HRA", "MLP", HRAConfig, {"target_modules": ["lin0", "lin1"]}),
-    ("Vanilla MLP 5 HRA", "MLP", HRAConfig, {"target_modules": ["lin0"], "modules_to_save": ["lin1"]}),
+    (
+        "Vanilla MLP 5 HRA",
+        "MLP",
+        HRAConfig,
+        {"target_modules": ["lin0"], "modules_to_save": ["lin1"]},
+    ),
     ("Conv2d 1 HRA", "Conv2d", HRAConfig, {"target_modules": ["conv2d"]}),
     #############
     # LN Tuning #
     #############
-    ("LayerNorm 1 LNTuning", "MLP_LayerNorm", LNTuningConfig, {"target_modules": "layernorm0"}),
-    ("LayerNorm 2 LNTuning", "MLP_LayerNorm", LNTuningConfig, {"target_modules": ["layernorm0"]}),
+    (
+        "LayerNorm 1 LNTuning",
+        "MLP_LayerNorm",
+        LNTuningConfig,
+        {"target_modules": "layernorm0"},
+    ),
+    (
+        "LayerNorm 2 LNTuning",
+        "MLP_LayerNorm",
+        LNTuningConfig,
+        {"target_modules": ["layernorm0"]},
+    ),
     (
         "LayerNorm 3 LNTuning",
         "MLP_LayerNorm",
@@ -281,11 +460,21 @@ TEST_CASES = [
         {"target_modules": ["layernorm0"], "modules_to_save": ["layernorm1"]},
     ),
     ("Linear 4 LNTuning", "MLP_LayerNorm", LNTuningConfig, {"target_modules": "lin0"}),
-    ("Linear 5 LNTuning", "MLP_LayerNorm", LNTuningConfig, {"target_modules": ["lin0"]}),
+    (
+        "Linear 5 LNTuning",
+        "MLP_LayerNorm",
+        LNTuningConfig,
+        {"target_modules": ["lin0"]},
+    ),
     ########
     # BOFT #
     ########
-    ("Vanilla MLP 1 BOFT", "MLP", BOFTConfig, {"target_modules": ["lin1"], "boft_block_size": 2}),
+    (
+        "Vanilla MLP 1 BOFT",
+        "MLP",
+        BOFTConfig,
+        {"target_modules": ["lin1"], "boft_block_size": 2},
+    ),
     (
         "Vanilla MLP 2 BOFT",
         "MLP",
@@ -306,55 +495,100 @@ TEST_CASES = [
         "Vanilla MLP 4 BOFT",
         "MLP",
         BOFTConfig,
-        {"target_modules": ["lin1"], "boft_block_size": 2, "boft_block_num": 0, "boft_n_butterfly_factor": 1},
+        {
+            "target_modules": ["lin1"],
+            "boft_block_size": 2,
+            "boft_block_num": 0,
+            "boft_n_butterfly_factor": 1,
+        },
     ),
     (
         "Vanilla MLP 5 BOFT",
         "MLP",
         BOFTConfig,
-        {"target_modules": ["lin1"], "boft_block_size": 0, "boft_block_num": 2, "boft_n_butterfly_factor": 1},
+        {
+            "target_modules": ["lin1"],
+            "boft_block_size": 0,
+            "boft_block_num": 2,
+            "boft_n_butterfly_factor": 1,
+        },
     ),
     (
         "Vanilla MLP 6 BOFT",
         "MLP",
         BOFTConfig,
-        {"target_modules": ["lin1"], "boft_block_size": 10, "boft_block_num": 0, "boft_n_butterfly_factor": 2},
+        {
+            "target_modules": ["lin1"],
+            "boft_block_size": 10,
+            "boft_block_num": 0,
+            "boft_n_butterfly_factor": 2,
+        },
     ),
     (
         "Conv2d 1 BOFT",
         "Conv2d",
         BOFTConfig,
-        {"target_modules": ["conv2d"], "boft_block_size": 45, "boft_block_num": 0, "boft_n_butterfly_factor": 1},
+        {
+            "target_modules": ["conv2d"],
+            "boft_block_size": 45,
+            "boft_block_num": 0,
+            "boft_n_butterfly_factor": 1,
+        },
     ),
     (
         "Conv2d 2 BOFT",
         "Conv2d",
         BOFTConfig,
-        {"target_modules": ["conv2d"], "boft_block_size": 0, "boft_block_num": 1, "boft_n_butterfly_factor": 1},
+        {
+            "target_modules": ["conv2d"],
+            "boft_block_size": 0,
+            "boft_block_num": 1,
+            "boft_n_butterfly_factor": 1,
+        },
     ),
     (
         "MLP2 1 BOFT",
         "MLP2",
         BOFTConfig,
-        {"target_modules": ["lin1"], "boft_block_size": 2, "boft_block_num": 0, "boft_n_butterfly_factor": 3},
+        {
+            "target_modules": ["lin1"],
+            "boft_block_size": 2,
+            "boft_block_num": 0,
+            "boft_n_butterfly_factor": 3,
+        },
     ),
     (
         "MLP2 2 BOFT",
         "MLP2",
         BOFTConfig,
-        {"target_modules": ["lin1"], "boft_block_size": 0, "boft_block_num": 8, "boft_n_butterfly_factor": 3},
+        {
+            "target_modules": ["lin1"],
+            "boft_block_size": 0,
+            "boft_block_num": 8,
+            "boft_n_butterfly_factor": 3,
+        },
     ),
     (
         "Conv2d2 1 BOFT",
         "Conv2d2",
         BOFTConfig,
-        {"target_modules": ["conv2d"], "boft_block_size": 2, "boft_block_num": 0, "boft_n_butterfly_factor": 2},
+        {
+            "target_modules": ["conv2d"],
+            "boft_block_size": 2,
+            "boft_block_num": 0,
+            "boft_n_butterfly_factor": 2,
+        },
     ),
     (
         "Conv2d2 1 BOFT",
         "Conv2d2",
         BOFTConfig,
-        {"target_modules": ["conv2d"], "boft_block_size": 2, "boft_block_num": 0, "boft_n_butterfly_factor": 3},
+        {
+            "target_modules": ["conv2d"],
+            "boft_block_size": 2,
+            "boft_block_num": 0,
+            "boft_n_butterfly_factor": 3,
+        },
     ),
     ########
     # VeRA #
@@ -378,9 +612,24 @@ TEST_CASES = [
     ########
     # FourierFT #
     ########
-    ("Vanilla MLP 1 FourierFT", "MLP", FourierFTConfig, {"n_frequency": 10, "target_modules": "lin0"}),
-    ("Vanilla MLP 2 FourierFT", "MLP", FourierFTConfig, {"n_frequency": 10, "target_modules": ["lin0"]}),
-    ("Vanilla MLP 3 FourierFT", "MLP", FourierFTConfig, {"n_frequency": 10, "target_modules": ["lin1"]}),
+    (
+        "Vanilla MLP 1 FourierFT",
+        "MLP",
+        FourierFTConfig,
+        {"n_frequency": 10, "target_modules": "lin0"},
+    ),
+    (
+        "Vanilla MLP 2 FourierFT",
+        "MLP",
+        FourierFTConfig,
+        {"n_frequency": 10, "target_modules": ["lin0"]},
+    ),
+    (
+        "Vanilla MLP 3 FourierFT",
+        "MLP",
+        FourierFTConfig,
+        {"n_frequency": 10, "target_modules": ["lin1"]},
+    ),
     (
         "Vanilla MLP 5 FourierFT",
         "MLP",
@@ -391,7 +640,11 @@ TEST_CASES = [
         "Vanilla MLP 6 FourierFT",
         "MLP",
         FourierFTConfig,
-        {"n_frequency": 10, "target_modules": ["lin0", "lin1"], "modules_to_save": ["lin1"]},
+        {
+            "n_frequency": 10,
+            "target_modules": ["lin0", "lin1"],
+            "modules_to_save": ["lin1"],
+        },
     ),
     (
         "Vanilla MLP 7 FourierFT",
@@ -406,9 +659,24 @@ TEST_CASES = [
     ##########
     # VBLoRA #
     ##########
-    ("Vanilla MLP 1 VBLoRA", "MLP", VBLoRAConfig, {"target_modules": "lin0", "vector_length": 1, "num_vectors": 5}),
-    ("Vanilla MLP 2 VBLoRA", "MLP", VBLoRAConfig, {"target_modules": ["lin0"], "vector_length": 1, "num_vectors": 5}),
-    ("Vanilla MLP 3 VBLoRA", "MLP", VBLoRAConfig, {"target_modules": ["lin1"], "vector_length": 2, "num_vectors": 5}),
+    (
+        "Vanilla MLP 1 VBLoRA",
+        "MLP",
+        VBLoRAConfig,
+        {"target_modules": "lin0", "vector_length": 1, "num_vectors": 5},
+    ),
+    (
+        "Vanilla MLP 2 VBLoRA",
+        "MLP",
+        VBLoRAConfig,
+        {"target_modules": ["lin0"], "vector_length": 1, "num_vectors": 5},
+    ),
+    (
+        "Vanilla MLP 3 VBLoRA",
+        "MLP",
+        VBLoRAConfig,
+        {"target_modules": ["lin1"], "vector_length": 2, "num_vectors": 5},
+    ),
     (
         "Vanilla MLP 4 VBLoRA",
         "MLP",
@@ -419,7 +687,12 @@ TEST_CASES = [
         "Vanilla MLP 5 VBLoRA",
         "MLP",
         VBLoRAConfig,
-        {"target_modules": ["lin0"], "modules_to_save": ["lin1"], "vector_length": 1, "num_vectors": 5},
+        {
+            "target_modules": ["lin0"],
+            "modules_to_save": ["lin1"],
+            "vector_length": 1,
+            "num_vectors": 5,
+        },
     ),
     (
         "Embedding + transformers Conv1D 1 VBLoRA",
@@ -485,15 +758,31 @@ MULTIPLE_ACTIVE_ADAPTERS_TEST_CASES = [
         "AdaLora Same",
         "adalora",
         AdaLoraConfig,
-        {"target_modules": ["lin0"], "init_lora_weights": False, "inference_mode": True},
-        {"target_modules": ["lin0"], "init_lora_weights": False, "inference_mode": True},
+        {
+            "target_modules": ["lin0"],
+            "init_lora_weights": False,
+            "inference_mode": True,
+        },
+        {
+            "target_modules": ["lin0"],
+            "init_lora_weights": False,
+            "inference_mode": True,
+        },
     ),
     (
         "AdaLora Different",
         "adalora",
         AdaLoraConfig,
-        {"target_modules": ["lin0"], "init_lora_weights": False, "inference_mode": True},
-        {"target_modules": ["lin1"], "init_lora_weights": False, "inference_mode": True},
+        {
+            "target_modules": ["lin0"],
+            "init_lora_weights": False,
+            "inference_mode": True,
+        },
+        {
+            "target_modules": ["lin1"],
+            "init_lora_weights": False,
+            "inference_mode": True,
+        },
     ),
     (
         "FourierFT Same",
@@ -645,7 +934,9 @@ class Block(nn.Module):
 class DeepMLP(nn.Module):
     def __init__(self, bias=True, num_hidden_layers=12):
         super().__init__()
-        self.layers = nn.ModuleList([Block(bias=bias) for _ in range(num_hidden_layers)])
+        self.layers = nn.ModuleList(
+            [Block(bias=bias) for _ in range(num_hidden_layers)]
+        )
         self.out = nn.Linear(10, 2, bias=bias)
         self.sm = nn.LogSoftmax(dim=-1)
 
@@ -793,7 +1084,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         return {"X": X}
 
     @parameterized.expand(TEST_CASES)
-    def test_attributes_parametrized(self, test_name, model_id, config_cls, config_kwargs):
+    def test_attributes_parametrized(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_model_attr(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
@@ -801,7 +1094,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         self._test_adapter_name(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
-    def test_prepare_for_training_parametrized(self, test_name, model_id, config_cls, config_kwargs):
+    def test_prepare_for_training_parametrized(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         # This test does not work with custom models because it assumes that
         # there is always a method get_input_embeddings that returns a layer
         # which does not need updates. Instead, a new test is added below that
@@ -813,12 +1108,20 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         self._test_save_pretrained(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
-    def test_save_pretrained_pickle(self, test_name, model_id, config_cls, config_kwargs):
-        self._test_save_pretrained(model_id, config_cls, config_kwargs, safe_serialization=False)
+    def test_save_pretrained_pickle(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
+        self._test_save_pretrained(
+            model_id, config_cls, config_kwargs, safe_serialization=False
+        )
 
     @parameterized.expand(TEST_CASES)
-    def test_from_pretrained_config_construction(self, test_name, model_id, config_cls, config_kwargs):
-        self._test_from_pretrained_config_construction(model_id, config_cls, config_kwargs)
+    def test_from_pretrained_config_construction(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
+        self._test_from_pretrained_config_construction(
+            model_id, config_cls, config_kwargs
+        )
 
     @parameterized.expand(TEST_CASES)
     def test_merge_layers(self, test_name, model_id, config_cls, config_kwargs):
@@ -845,7 +1148,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         self._test_merge_layers_fp16(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
-    def test_merge_layers_is_idempotent(self, test_name, model_id, config_cls, config_kwargs):
+    def test_merge_layers_is_idempotent(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         # calling merge twice with the same arguments should not change the output
         config_kwargs = config_kwargs.copy()
         if issubclass(config_cls, LoraConfig):
@@ -883,29 +1188,41 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         pass
 
     @parameterized.expand(TEST_CASES)
-    def test_training_custom_models(self, test_name, model_id, config_cls, config_kwargs):
+    def test_training_custom_models(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_training(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
-    def test_training_custom_models_layer_indexing(self, test_name, model_id, config_cls, config_kwargs):
+    def test_training_custom_models_layer_indexing(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         # At the moment, layer indexing only works when layer names conform to a specific pattern, which is not
         # guaranteed here. Therefore, this test is not performed.
         pass
 
     @parameterized.expand(TEST_CASES)
-    def test_training_custom_models_gradient_checkpointing(self, test_name, model_id, config_cls, config_kwargs):
+    def test_training_custom_models_gradient_checkpointing(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_training_gradient_checkpointing(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
-    def test_inference_safetensors(self, test_name, model_id, config_cls, config_kwargs):
+    def test_inference_safetensors(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_inference_safetensors(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
-    def test_peft_model_device_map(self, test_name, model_id, config_cls, config_kwargs):
+    def test_peft_model_device_map(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_peft_model_device_map(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
-    def test_forward_output_finite(self, test_name, model_id, config_cls, config_kwargs):
+    def test_forward_output_finite(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         X = self.prepare_inputs_for_testing()
         model = self.transformers_class.from_pretrained(model_id).to(self.torch_device)
         config = config_cls(
@@ -919,7 +1236,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         assert torch.isfinite(output).all()
 
     @parameterized.expand(TEST_CASES)
-    def test_only_params_are_updated(self, test_name, model_id, config_cls, config_kwargs):
+    def test_only_params_are_updated(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         # An explicit test that when using an adapter on a custom model, only the adapter parameters are updated during
         # training
         X = self.prepare_inputs_for_testing()
@@ -935,7 +1254,8 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         # this high learning rate was found through testing to be necessary to avoid flakiness
         lr = (
             100.0
-            if (config_kwargs.get("use_dora") and model_id == "EmbConv1D") or issubclass(config_cls, VBLoRAConfig)
+            if (config_kwargs.get("use_dora") and model_id == "EmbConv1D")
+            or issubclass(config_cls, VBLoRAConfig)
             else 0.5
         )
         optimizer = torch.optim.SGD(model.parameters(), lr=lr)
@@ -964,7 +1284,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
                 assert torch.allclose(param_before, param_after, atol=tol, rtol=tol)
 
     @parameterized.expand(TEST_CASES)
-    def test_parameters_after_loading_model(self, test_name, model_id, config_cls, config_kwargs):
+    def test_parameters_after_loading_model(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         # An explicit test that when loading a trained model, the parameters are loaded correctly
         # see issue #808
         X = self.prepare_inputs_for_testing()
@@ -996,8 +1318,12 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
 
         with tempfile.TemporaryDirectory() as tmp_dirname:
             model.save_pretrained(tmp_dirname)
-            model_from_pretrained = self.transformers_class.from_pretrained(model_id).to(self.torch_device)
-            model_from_pretrained = PeftModel.from_pretrained(model_from_pretrained, tmp_dirname)
+            model_from_pretrained = self.transformers_class.from_pretrained(
+                model_id
+            ).to(self.torch_device)
+            model_from_pretrained = PeftModel.from_pretrained(
+                model_from_pretrained, tmp_dirname
+            )
             params_after = get_state_dict(model_from_pretrained)
 
             assert params_before.keys() == params_after.keys()
@@ -1008,7 +1334,11 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
     @parameterized.expand(TEST_CASES)
     def test_disable_adapters(self, test_name, model_id, config_cls, config_kwargs):
         X = self.prepare_inputs_for_testing()
-        model = self.transformers_class.from_pretrained(model_id).to(self.torch_device).eval()
+        model = (
+            self.transformers_class.from_pretrained(model_id)
+            .to(self.torch_device)
+            .eval()
+        )
         outputs_base = model(**X)
         if issubclass(config_cls, FourierFTConfig):
             config_kwargs = config_kwargs.copy()
@@ -1065,7 +1395,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         assert torch.allclose(outputs_after, outputs_enabled_after_disable)
 
     @parameterized.expand(TEST_CASES)
-    def test_disable_adapters_with_merging(self, test_name, model_id, config_cls, config_kwargs):
+    def test_disable_adapters_with_merging(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         # same as test_disable_adapters, but with merging
         X = self.prepare_inputs_for_testing()
         model = self.transformers_class.from_pretrained(model_id).to(self.torch_device)
@@ -1117,9 +1449,14 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         # check that after leaving the disable_adapter context, everything is enabled again
         outputs_enabled_after_disable = model(**X)
 
-        atol, rtol = 1e-5, 1e-5  # tolerances higher than defaults since merging introduces some numerical instability
+        atol, rtol = (
+            1e-5,
+            1e-5,
+        )  # tolerances higher than defaults since merging introduces some numerical instability
 
-        if issubclass(config_cls, IA3Config) and model_id == "Conv2d":  # more instability with Conv2d + IA3
+        if (
+            issubclass(config_cls, IA3Config) and model_id == "Conv2d"
+        ):  # more instability with Conv2d + IA3
             atol, rtol = 1e-3, 1e-3
 
         if config_kwargs.get("use_dora") and model_id == "EmbConv1D":
@@ -1138,10 +1475,14 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         assert torch.allclose(outputs_before, outputs_disabled, atol=atol, rtol=rtol)
 
         # check that enabling + disabling adapters does not change the results
-        assert torch.allclose(outputs_after, outputs_enabled_after_disable, atol=atol, rtol=rtol)
+        assert torch.allclose(
+            outputs_after, outputs_enabled_after_disable, atol=atol, rtol=rtol
+        )
 
     @parameterized.expand(TEST_CASES)
-    def test_disable_adapter_with_bias_warns(self, test_name, model_id, config_cls, config_kwargs):
+    def test_disable_adapter_with_bias_warns(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         # When training biases in lora, disabling adapters does not reset the biases, so the output is not what users
         # might expect. Therefore, a warning should be given.
 
@@ -1157,7 +1498,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         def run_with_disable(config_kwargs, bias):
             config_kwargs = config_kwargs.copy()
             config_kwargs["bias"] = bias
-            model = self.transformers_class.from_pretrained(model_id).to(self.torch_device)
+            model = self.transformers_class.from_pretrained(model_id).to(
+                self.torch_device
+            )
             config = config_cls(
                 base_model_name_or_path=model_id,
                 **config_kwargs,
@@ -1190,7 +1533,10 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
                 run_with_disable(config_kwargs, bias="none")
                 # if we get here, it means there was no AssertionError, i.e. there are warnings -- let's check that they
                 # are not related to the bias setting
-                if any(warning.message.args[0].startswith(msg_start) for warning in cm.warnings):
+                if any(
+                    warning.message.args[0].startswith(msg_start)
+                    for warning in cm.warnings
+                ):
                     bias_warning_was_given = True
         except AssertionError:
             # This is good, there was an AssertionError, i.e. there was no warning
@@ -1241,7 +1587,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             **config_kwargs,
         )
         model = get_peft_model(model, config)
-        tuner_modules = [module for module in model.modules() if isinstance(module, BaseTunerLayer)]
+        tuner_modules = [
+            module for module in model.modules() if isinstance(module, BaseTunerLayer)
+        ]
 
         # all layers should be enabled
         assert all(not module.disable_adapters for module in tuner_modules)
@@ -1258,7 +1606,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         assert all(module.disable_adapters for module in tuner_modules)
 
     @parameterized.expand(TEST_CASES)
-    def test_disable_adapters_exiting_context_irregular_state(self, test_name, model_id, config_cls, config_kwargs):
+    def test_disable_adapters_exiting_context_irregular_state(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         # When we have a model where some adapters are enabled and others are disabled, we should get a warning when
         # entering the disable_adapter context because we cannot correctly restore the state of the adapters from
         # before the context. After exiting the context, all adapters will be enabled, which is the status quo of how
@@ -1269,7 +1619,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             **config_kwargs,
         )
         model = get_peft_model(model, config)
-        tuner_modules = [module for module in model.modules() if isinstance(module, BaseTunerLayer)]
+        tuner_modules = [
+            module for module in model.modules() if isinstance(module, BaseTunerLayer)
+        ]
 
         # now we mix the states, some enabled some not
         if len(tuner_modules) < 2:
@@ -1294,12 +1646,18 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         self._test_delete_adapter(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
-    def test_delete_inactive_adapter(self, test_name, model_id, config_cls, config_kwargs):
+    def test_delete_inactive_adapter(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_delete_inactive_adapter(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(TEST_CASES)
-    def test_adding_multiple_adapters_with_bias_raises(self, test_name, model_id, config_cls, config_kwargs):
-        self._test_adding_multiple_adapters_with_bias_raises(model_id, config_cls, config_kwargs)
+    def test_adding_multiple_adapters_with_bias_raises(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
+        self._test_adding_multiple_adapters_with_bias_raises(
+            model_id, config_cls, config_kwargs
+        )
 
     def test_weight_bias_attributes(self):
         model = MLP()
@@ -1324,7 +1682,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         assert "default" in model.base_model.classifier.modules_to_save
         assert "other" in model.base_model.classifier.modules_to_save
 
-    @parameterized.expand([IA3Config, LoHaConfig, LoKrConfig, LoraConfig, OFTConfig, HRAConfig])
+    @parameterized.expand(
+        [IA3Config, LoHaConfig, LoKrConfig, LoraConfig, OFTConfig, HRAConfig]
+    )
     def test_multiple_adapters_mixed_modules_to_save(self, config_cls):
         # See issue 1574
         # Check that we can have a model where one adapter has modules_to_save and the other doesn't. It should be
@@ -1349,7 +1709,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         model.set_adapter("other")
         model(**inputs)
 
-    @parameterized.expand([IA3Config, LoHaConfig, LoKrConfig, LoraConfig, OFTConfig, HRAConfig])
+    @parameterized.expand(
+        [IA3Config, LoHaConfig, LoKrConfig, LoraConfig, OFTConfig, HRAConfig]
+    )
     def test_multiple_adapters_mixed_modules_to_save_order_switched(self, config_cls):
         # See issue 1574
         # Same test as test_multiple_adapters_mixed_modules_to_save, but this time the 2nd adapter has modules_to_save.
@@ -1384,7 +1746,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         model.add_adapter("other", config1)
 
         # check that this does not raise
-        model.add_weighted_adapter(["default", "other"], weights=[1.0, 1.0], adapter_name="merged")
+        model.add_weighted_adapter(
+            ["default", "other"], weights=[1.0, 1.0], adapter_name="merged"
+        )
 
         # since one of the adapters that was merged has a modules_to_save, that one should be used for the merged
         # adapter
@@ -1413,7 +1777,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             "instance(s)."
         )
         with pytest.raises(ValueError, match=msg):
-            model.add_weighted_adapter(["default", "other"], weights=[1.0, 1.0], adapter_name="merged")
+            model.add_weighted_adapter(
+                ["default", "other"], weights=[1.0, 1.0], adapter_name="merged"
+            )
 
     def test_multiple_adapters_seq_cls_mixed_modules_to_save_merging_adapters(self):
         # See issue 1574
@@ -1431,7 +1797,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             "instance(s)."
         )
         with pytest.raises(ValueError, match=msg):
-            model.add_weighted_adapter(["default", "other"], weights=[1.0, 1.0], adapter_name="merged")
+            model.add_weighted_adapter(
+                ["default", "other"], weights=[1.0, 1.0], adapter_name="merged"
+            )
 
     def test_existing_model_card(self):
         # ensure that if there is already a model card, it is not overwritten
@@ -1471,7 +1839,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
     @parameterized.expand(["auto", True, False])
     def test_targeting_lora_to_embedding_layer(self, save_embedding_layers):
         model = ModelEmbWithEmbeddingUtils()
-        config = LoraConfig(target_modules=["embed_tokens", "lin0"], init_lora_weights=False)
+        config = LoraConfig(
+            target_modules=["embed_tokens", "lin0"], init_lora_weights=False
+        )
         model = get_peft_model(model, config)
 
         with tempfile.TemporaryDirectory() as tmp_dirname:
@@ -1479,12 +1849,18 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
                 # assert warning
                 msg_start = "Setting `save_embedding_layers` to `True` as embedding layers found in `target_modules`."
                 with pytest.warns(UserWarning, match=msg_start):
-                    model.save_pretrained(tmp_dirname, save_embedding_layers=save_embedding_layers)
+                    model.save_pretrained(
+                        tmp_dirname, save_embedding_layers=save_embedding_layers
+                    )
             else:
-                model.save_pretrained(tmp_dirname, save_embedding_layers=save_embedding_layers)
+                model.save_pretrained(
+                    tmp_dirname, save_embedding_layers=save_embedding_layers
+                )
             from safetensors.torch import load_file as safe_load_file
 
-            state_dict = safe_load_file(os.path.join(tmp_dirname, "adapter_model.safetensors"))
+            state_dict = safe_load_file(
+                os.path.join(tmp_dirname, "adapter_model.safetensors")
+            )
             if save_embedding_layers in ["auto", True]:
                 assert "base_model.model.embed_tokens.base_layer.weight" in state_dict
                 assert torch.allclose(
@@ -1492,11 +1868,15 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
                     state_dict["base_model.model.embed_tokens.base_layer.weight"],
                 )
             else:
-                assert "base_model.model.embed_tokens.base_layer.weight" not in state_dict
+                assert (
+                    "base_model.model.embed_tokens.base_layer.weight" not in state_dict
+                )
             del state_dict
 
     @parameterized.expand(["auto", True, False])
-    def test_targeting_lora_to_embedding_layer_non_transformers(self, save_embedding_layers):
+    def test_targeting_lora_to_embedding_layer_non_transformers(
+        self, save_embedding_layers
+    ):
         model = ModelEmbConv1D()
         config = LoraConfig(target_modules=["emb", "lin0"], init_lora_weights=False)
         model = get_peft_model(model, config)
@@ -1507,12 +1887,18 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
                     UserWarning,
                     match=r"Could not identify embedding layer\(s\) because the model is not a 🤗 transformers model\.",
                 ):
-                    model.save_pretrained(tmp_dirname, save_embedding_layers=save_embedding_layers)
+                    model.save_pretrained(
+                        tmp_dirname, save_embedding_layers=save_embedding_layers
+                    )
             else:
-                model.save_pretrained(tmp_dirname, save_embedding_layers=save_embedding_layers)
+                model.save_pretrained(
+                    tmp_dirname, save_embedding_layers=save_embedding_layers
+                )
             from safetensors.torch import load_file as safe_load_file
 
-            state_dict = safe_load_file(os.path.join(tmp_dirname, "adapter_model.safetensors"))
+            state_dict = safe_load_file(
+                os.path.join(tmp_dirname, "adapter_model.safetensors")
+            )
             assert "base_model.model.emb.base_layer.weight" not in state_dict
             del state_dict
 
@@ -1551,7 +1937,11 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             LoKrConfig(target_modules=["lin0"], init_weights=False),
             LoHaConfig(target_modules=["lin0"], init_weights=False),
             AdaLoraConfig(target_modules=["lin0"], init_lora_weights=False),
-            IA3Config(target_modules=["lin0"], feedforward_modules=["lin0"], init_ia3_weights=False),
+            IA3Config(
+                target_modules=["lin0"],
+                feedforward_modules=["lin0"],
+                init_ia3_weights=False,
+            ),
             OFTConfig(target_modules=["lin0"], init_weights=False),
             BOFTConfig(target_modules=["lin0"], init_weights=False, boft_block_size=2),
             HRAConfig(target_modules=["lin0"], init_weights=False),
@@ -1571,7 +1961,11 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         torch.manual_seed(0)
         base_model = model_cls().eval().to(self.torch_device)
         torch.manual_seed(0)
-        peft_model_default = get_peft_model(base_model, config0, adapter_name="default").eval().to(self.torch_device)
+        peft_model_default = (
+            get_peft_model(base_model, config0, adapter_name="default")
+            .eval()
+            .to(self.torch_device)
+        )
         output_default = peft_model_default(input)
         sd_default = peft_model_default.state_dict()
 
@@ -1579,7 +1973,11 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         torch.manual_seed(0)
         base_model = model_cls().eval().to(self.torch_device)
         torch.manual_seed(0)
-        peft_model_custom1 = get_peft_model(base_model, config0, adapter_name="adapter").eval().to(self.torch_device)
+        peft_model_custom1 = (
+            get_peft_model(base_model, config0, adapter_name="adapter")
+            .eval()
+            .to(self.torch_device)
+        )
         output_custom1 = peft_model_custom1(input)
         sd_custom1 = peft_model_custom1.state_dict()
 
@@ -1588,7 +1986,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         base_model = model_cls().eval().to(self.torch_device)
         torch.manual_seed(0)
         peft_model_custom2 = (
-            get_peft_model(base_model, config0, adapter_name="other-name").eval().to(self.torch_device)
+            get_peft_model(base_model, config0, adapter_name="other-name")
+            .eval()
+            .to(self.torch_device)
         )
         output_custom2 = peft_model_custom2(input)
         sd_custom2 = peft_model_custom2.state_dict()
@@ -1642,12 +2042,18 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         tmp_dirname = tempfile.mkdtemp()
         try:
             model.save_pretrained(tmp_dirname)
-            state_dict_adapter = safe_load_file(os.path.join(tmp_dirname, "adapter_model.safetensors"))
+            state_dict_adapter = safe_load_file(
+                os.path.join(tmp_dirname, "adapter_model.safetensors")
+            )
             # note that in the state dict, the "default" part of the key is removed
-            assert not any("lora_magnitude_vector.weight" in k for k in state_dict_adapter)
+            assert not any(
+                "lora_magnitude_vector.weight" in k for k in state_dict_adapter
+            )
 
             del model
-            loaded = PeftModel.from_pretrained(AutoModelForCausalLM.from_pretrained("facebook/opt-125m"), tmp_dirname)
+            loaded = PeftModel.from_pretrained(
+                AutoModelForCausalLM.from_pretrained("facebook/opt-125m"), tmp_dirname
+            )
         finally:
             try:
                 shutil.rmtree(tmp_dirname)
@@ -1690,7 +2096,9 @@ class TestMultiRankAdapter(unittest.TestCase):
         rank_current = model.lin0.lora_A["second"].weight.shape[0]
         rank_expected = config_2.rank_pattern["lin0"]
 
-        assert rank_current == rank_expected, f"Rank {rank_current} is not equal to expected {rank_expected}"
+        assert (
+            rank_current == rank_expected
+        ), f"Rank {rank_current} is not equal to expected {rank_expected}"
 
     def test_multirank_2(self):
         rank_pattern = {}
@@ -1829,7 +2237,10 @@ class MultipleActiveAdaptersTester(unittest.TestCase):
             # create a weighted adapter combining both adapters and check that
             # its output is same as setting multiple active adapters
             peft_model.add_weighted_adapter(
-                ["adapter_1", "adapter_2"], [1.0, 1.0], "new_combined_adapter", combination_type="cat"
+                ["adapter_1", "adapter_2"],
+                [1.0, 1.0],
+                "new_combined_adapter",
+                combination_type="cat",
             )
             peft_model.set_adapter("new_combined_adapter")
             new_combined_output = peft_model(**X)
@@ -1867,7 +2278,9 @@ class MultipleActiveAdaptersTester(unittest.TestCase):
         assert torch.allclose(disabled_adapter_output, base_output, atol=1e-4)
 
     @parameterized.expand(MULTIPLE_ACTIVE_ADAPTERS_TEST_CASES)
-    def test_merge_layers_multi(self, test_name, tuner_method, config_cls, config_kwargs_1, config_kwargs_2):
+    def test_merge_layers_multi(
+        self, test_name, tuner_method, config_cls, config_kwargs_1, config_kwargs_2
+    ):
         torch.manual_seed(0)
         model = MLP(bias=tuner_method != "ia3")
         model.eval()
@@ -1890,38 +2303,58 @@ class MultipleActiveAdaptersTester(unittest.TestCase):
         with torch.inference_mode():
             logits_adapter_2 = model(**dummy_input)[0]
 
-        assert not torch.allclose(logits_adapter_1, logits_adapter_2, atol=1e-3, rtol=1e-3)
+        assert not torch.allclose(
+            logits_adapter_1, logits_adapter_2, atol=1e-3, rtol=1e-3
+        )
 
         model.set_adapter("default")
 
         with torch.inference_mode():
             logits_adapter_1_after_set = model(**dummy_input)[0]
 
-        assert torch.allclose(logits_adapter_1_after_set, logits_adapter_1, atol=1e-3, rtol=1e-3)
+        assert torch.allclose(
+            logits_adapter_1_after_set, logits_adapter_1, atol=1e-3, rtol=1e-3
+        )
 
         model_copy = copy.deepcopy(model)
         model_copy_2 = copy.deepcopy(model)
-        model_merged_all = model.merge_and_unload(adapter_names=["adapter-2", "default"])
+        model_merged_all = model.merge_and_unload(
+            adapter_names=["adapter-2", "default"]
+        )
 
         with torch.inference_mode():
             logits_merged_all = model_merged_all(**dummy_input)[0]
 
-        assert not torch.allclose(logits_merged_all, logits_adapter_2, atol=1e-3, rtol=1e-3)
-        assert not torch.allclose(logits_merged_all, logits_adapter_1, atol=1e-3, rtol=1e-3)
+        assert not torch.allclose(
+            logits_merged_all, logits_adapter_2, atol=1e-3, rtol=1e-3
+        )
+        assert not torch.allclose(
+            logits_merged_all, logits_adapter_1, atol=1e-3, rtol=1e-3
+        )
 
-        model_merged_adapter_2 = model_copy.merge_and_unload(adapter_names=["adapter-2"])
+        model_merged_adapter_2 = model_copy.merge_and_unload(
+            adapter_names=["adapter-2"]
+        )
 
         with torch.inference_mode():
             logits_merged_adapter_2 = model_merged_adapter_2(**dummy_input)[0]
 
-        assert torch.allclose(logits_merged_adapter_2, logits_adapter_2, atol=1e-3, rtol=1e-3)
+        assert torch.allclose(
+            logits_merged_adapter_2, logits_adapter_2, atol=1e-3, rtol=1e-3
+        )
 
-        model_merged_adapter_default = model_copy_2.merge_and_unload(adapter_names=["default"])
+        model_merged_adapter_default = model_copy_2.merge_and_unload(
+            adapter_names=["default"]
+        )
 
         with torch.inference_mode():
-            logits_merged_adapter_default = model_merged_adapter_default(**dummy_input)[0]
+            logits_merged_adapter_default = model_merged_adapter_default(**dummy_input)[
+                0
+            ]
 
-        assert torch.allclose(logits_merged_adapter_default, logits_adapter_1, atol=1e-3, rtol=1e-3)
+        assert torch.allclose(
+            logits_merged_adapter_default, logits_adapter_1, atol=1e-3, rtol=1e-3
+        )
 
 
 class RequiresGradTester(unittest.TestCase):
@@ -1937,7 +2370,9 @@ class RequiresGradTester(unittest.TestCase):
     def check_requires_grad(self, model, *params_expected: str):
         # Check that only the given parameters have requires_grad=True, and all others have requires_grad=False.
         # Calling without arguments besides the model means that all parameters should have requires_grad=False.
-        params_with_requires_grad = [name for name, param in model.named_parameters() if param.requires_grad]
+        params_with_requires_grad = [
+            name for name, param in model.named_parameters() if param.requires_grad
+        ]
         diff = set(params_expected).symmetric_difference(set(params_with_requires_grad))
         msg = f"Expected {params_expected} to require gradients, got {params_with_requires_grad}"
         assert len(diff) == 0, msg
@@ -2788,7 +3223,9 @@ class RequiresGradTester(unittest.TestCase):
         config0 = BOFTConfig(target_modules=["lin0"], boft_block_size=2)
         peft_model = get_peft_model(MLP2(), config0)
 
-        config1 = BOFTConfig(target_modules=["lin1"], boft_block_size=2, inference_mode=True)
+        config1 = BOFTConfig(
+            target_modules=["lin1"], boft_block_size=2, inference_mode=True
+        )
         peft_model.add_adapter("adapter1", config1)
 
         # active pter is still "default"
@@ -2830,7 +3267,9 @@ class RequiresGradTester(unittest.TestCase):
         config0 = BOFTConfig(target_modules=["lin1"], boft_block_size=2)
         peft_model = get_peft_model(MLP(), config0)
 
-        config1 = BOFTConfig(target_modules=["lin1"], boft_block_size=2, inference_mode=True)
+        config1 = BOFTConfig(
+            target_modules=["lin1"], boft_block_size=2, inference_mode=True
+        )
         peft_model.add_adapter("adapter1", config1)
 
         # active adapter is still "default"
@@ -2969,7 +3408,9 @@ class RequiresGradTester(unittest.TestCase):
                 super().__init__()
                 self.relu = nn.ReLU()
                 self.lin0 = nn.Linear(10, 20, bias=bias)
-                self.lin1 = nn.Linear(20, 20, bias=bias)  # lin1 and lin2 have same shape
+                self.lin1 = nn.Linear(
+                    20, 20, bias=bias
+                )  # lin1 and lin2 have same shape
                 self.lin2 = nn.Linear(20, 20, bias=bias)
                 self.lin3 = nn.Linear(20, 2, bias=bias)
                 self.sm = nn.LogSoftmax(dim=-1)
@@ -3036,7 +3477,9 @@ class RequiresGradTester(unittest.TestCase):
                 super().__init__()
                 self.relu = nn.ReLU()
                 self.lin0 = nn.Linear(10, 20, bias=bias)
-                self.lin1 = nn.Linear(20, 20, bias=bias)  # lin1 and lin2 have same shape
+                self.lin1 = nn.Linear(
+                    20, 20, bias=bias
+                )  # lin1 and lin2 have same shape
                 self.lin2 = nn.Linear(20, 20, bias=bias)
                 self.lin3 = nn.Linear(20, 2, bias=bias)
                 self.sm = nn.LogSoftmax(dim=-1)
@@ -3198,7 +3641,9 @@ class RequiresGradTester(unittest.TestCase):
         config0 = FourierFTConfig(n_frequency=10, target_modules=["lin0"])
         peft_model = get_peft_model(MLP(), config0)
 
-        config1 = FourierFTConfig(n_frequency=10, target_modules=["lin1"], inference_mode=True)
+        config1 = FourierFTConfig(
+            n_frequency=10, target_modules=["lin1"], inference_mode=True
+        )
         peft_model.add_adapter("adapter1", config1)
 
         # active adapter is still "default"
@@ -3236,7 +3681,9 @@ class RequiresGradTester(unittest.TestCase):
         config0 = FourierFTConfig(n_frequency=10, target_modules=["lin0"])
         peft_model = get_peft_model(MLP(), config0)
 
-        config1 = FourierFTConfig(n_frequency=10, target_modules=["lin0"], inference_mode=True)
+        config1 = FourierFTConfig(
+            n_frequency=10, target_modules=["lin0"], inference_mode=True
+        )
         peft_model.add_adapter("adapter1", config1)
 
         # active adapter is still "default"
@@ -3335,7 +3782,9 @@ class TestMixedAdapterBatches:
         inputs = {"X": torch.arange(90).view(-1, 10).to(self.torch_device)}
         self.run_checks(peft_model, inputs)
 
-    def test_mixed_adapter_batches_lora_partly_overlapping_target_layers(self, mlp_lora):
+    def test_mixed_adapter_batches_lora_partly_overlapping_target_layers(
+        self, mlp_lora
+    ):
         base_model = MLP().to(self.torch_device).eval()
         # target different lora layers
         config0 = LoraConfig(target_modules=["lin0"], init_lora_weights=False)
@@ -3349,7 +3798,9 @@ class TestMixedAdapterBatches:
     def test_mixed_adapter_batches_lora_conv1d_emb(self):
         base_model = ModelEmbConv1D().to(self.torch_device).eval()
         config0 = LoraConfig(target_modules=["emb", "conv1d"], init_lora_weights=False)
-        config1 = LoraConfig(target_modules=["emb", "conv1d"], r=16, init_lora_weights=False)
+        config1 = LoraConfig(
+            target_modules=["emb", "conv1d"], r=16, init_lora_weights=False
+        )
         peft_model = get_peft_model(base_model, config0, "adapter0").eval()
         peft_model.add_adapter("adapter1", config1)
 
@@ -3418,7 +3869,9 @@ class TestMixedAdapterBatches:
         }
 
         base_model = MLP().to(self.torch_device).eval()
-        config = LoraConfig(target_modules=["lin0"], init_lora_weights=False, use_dora=True)
+        config = LoraConfig(
+            target_modules=["lin0"], init_lora_weights=False, use_dora=True
+        )
         peft_model = get_peft_model(base_model, config).eval()
         msg = r"Cannot pass `adapter_names` when DoRA is enabled."
         with pytest.raises(ValueError, match=msg):
@@ -3437,7 +3890,11 @@ class TestMixedAdapterBatches:
             toc = time.perf_counter()
             logs.append(toc - tic)
 
-        base_model = AutoModelForCausalLM.from_pretrained("facebook/opt-125m").to(self.torch_device).eval()
+        base_model = (
+            AutoModelForCausalLM.from_pretrained("facebook/opt-125m")
+            .to(self.torch_device)
+            .eval()
+        )
         inputs = {"input_ids": torch.randint(0, 1000, (16, 64)).to(self.torch_device)}
         with timed():
             output_base = base_model(**inputs).logits
@@ -3461,7 +3918,9 @@ class TestMixedAdapterBatches:
 
         # set adapter_indices so that it alternates between 0 (base), lora 1, and lora 2
         adapters = ["__base__", "adapter1", "adapter2"]
-        inputs["adapter_names"] = [adapters[i % 3] for i in (range(len(inputs["input_ids"])))]
+        inputs["adapter_names"] = [
+            adapters[i % 3] for i in (range(len(inputs["input_ids"])))
+        ]
         with timed():
             output_mixed = peft_model.forward(**inputs).logits
 
@@ -3549,7 +4008,9 @@ class TestDynamicDispatch:
 
         return MyModel
 
-    def test_custom_lora_layer_used(self, custom_module_cls, custom_lora_cls, model_cls):
+    def test_custom_lora_layer_used(
+        self, custom_module_cls, custom_lora_cls, model_cls
+    ):
         # check that when we register custom lora layers, they are indeed being used for the intended module
         model = model_cls()
         config = LoraConfig(target_modules=["lin0", "my_module", "lin1"])
@@ -3557,10 +4018,16 @@ class TestDynamicDispatch:
 
         peft_model = get_peft_model(model, config)
         assert isinstance(peft_model.base_model.model.my_module, custom_lora_cls)
-        assert isinstance(peft_model.base_model.model.my_module.base_layer, custom_module_cls)
+        assert isinstance(
+            peft_model.base_model.model.my_module.base_layer, custom_module_cls
+        )
         # sanity check that the other lora layer types are still the default ones
-        assert not isinstance(peft_model.base_model.model.lin0.base_layer, custom_module_cls)
-        assert not isinstance(peft_model.base_model.model.lin1.base_layer, custom_module_cls)
+        assert not isinstance(
+            peft_model.base_model.model.lin0.base_layer, custom_module_cls
+        )
+        assert not isinstance(
+            peft_model.base_model.model.lin1.base_layer, custom_module_cls
+        )
 
     def test_training_works(self, model_cls, custom_module_cls, custom_lora_cls):
         # check that when we train with custom lora layers, they are indeed updated
@@ -3590,7 +4057,9 @@ class TestDynamicDispatch:
             sd_after["base_model.model.my_module.lora_B.default.weight"],
         )
 
-    def test_saving_and_loading(self, custom_module_cls, custom_lora_cls, model_cls, tmp_path):
+    def test_saving_and_loading(
+        self, custom_module_cls, custom_lora_cls, model_cls, tmp_path
+    ):
         # check that we can successfully save and load the custom lora cls
         torch.manual_seed(0)
         model = model_cls()
@@ -3616,9 +4085,13 @@ class TestDynamicDispatch:
 
         # different seed for adapter to ensure it is not identical just because of seed
         torch.manual_seed(123)
-        peft_model = PeftModel.from_pretrained(model, tmp_path / "lora-custom-module", config=config)
+        peft_model = PeftModel.from_pretrained(
+            model, tmp_path / "lora-custom-module", config=config
+        )
         assert isinstance(peft_model.base_model.model.my_module, custom_lora_cls)
-        assert isinstance(peft_model.base_model.model.my_module.base_layer, custom_module_cls)
+        assert isinstance(
+            peft_model.base_model.model.my_module.base_layer, custom_module_cls
+        )
 
         outputs_after = peft_model(inputs)  # does not raise
         assert torch.allclose(outputs_before, outputs_after)
@@ -3640,7 +4113,9 @@ class TestDynamicDispatch:
             assert isinstance(layer.self_attn.v_proj, custom_lora_cls)
             assert isinstance(layer.self_attn.q_proj, custom_lora_cls)
 
-    def test_custom_lora_layer_issues_warning(self, custom_module_cls, custom_lora_cls, model_cls, recwarn):
+    def test_custom_lora_layer_issues_warning(
+        self, custom_module_cls, custom_lora_cls, model_cls, recwarn
+    ):
         # users will get a warning if they target a layer type that is not officially supported
         model = model_cls()
         config = LoraConfig(target_modules=["lin0", "my_module", "lin1"])

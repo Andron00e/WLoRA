@@ -23,9 +23,13 @@ import transformers
 
 
 @contextmanager
-def gather_params_ctx(param, modifier_rank: int = 0, fwd_module: torch.nn.Module = None):
+def gather_params_ctx(
+    param, modifier_rank: int = 0, fwd_module: torch.nn.Module = None
+):
     """Call DeepSpeed GatheredParameters context manager if DeepSpeed is enabled, otherwise do nothing."""
-    if packaging.version.parse(transformers.__version__) >= packaging.version.parse("4.33.0"):
+    if packaging.version.parse(transformers.__version__) >= packaging.version.parse(
+        "4.33.0"
+    ):
         from transformers.integrations import is_deepspeed_zero3_enabled
     else:
         from transformers.deepspeed import is_deepspeed_zero3_enabled
@@ -36,7 +40,9 @@ def gather_params_ctx(param, modifier_rank: int = 0, fwd_module: torch.nn.Module
 
     import deepspeed
 
-    with deepspeed.zero.GatheredParameters(param, modifier_rank=modifier_rank, fwd_module=fwd_module):
+    with deepspeed.zero.GatheredParameters(
+        param, modifier_rank=modifier_rank, fwd_module=fwd_module
+    ):
         yield
     return
 
@@ -58,7 +64,9 @@ def dequantize_module_weight(module: torch.nn.Module) -> torch.nn.Parameter:
         if isinstance(weight, torch.Tensor):
             # this is an FSDP-specific edge case
             return weight  # type: ignore
-        raise TypeError(f"Input weight should be of type nn.Parameter, got {type(weight)} instead")
+        raise TypeError(
+            f"Input weight should be of type nn.Parameter, got {type(weight)} instead"
+        )
 
     cls_name = weight.__class__.__name__
     if cls_name not in ("Params4bit", "Int8Params"):
@@ -101,9 +109,13 @@ def dequantize_bnb_weight(weight: torch.nn.Parameter, state=None):
     im, imt, SCim, SCimt, coo_tensorim = bnb.functional.double_quant(im)
     im, Sim = bnb.functional.transform(im, "col32")
     if state.CxB is None:
-        state.CxB, state.SB = bnb.functional.transform(weight.data, to_order=state.formatB)
+        state.CxB, state.SB = bnb.functional.transform(
+            weight.data, to_order=state.formatB
+        )
     out32, Sout32 = bnb.functional.igemmlt(im, state.CxB, Sim, state.SB)
-    dequantized = bnb.functional.mm_dequant(out32, Sout32, SCim, state.SCB, bias=None).t()
+    dequantized = bnb.functional.mm_dequant(
+        out32, Sout32, SCim, state.SCB, bias=None
+    ).t()
     if is_cpu:
         dequantized = dequantized.to(device)
     return dequantized

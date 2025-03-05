@@ -73,7 +73,10 @@ def random_pruning(tensor: torch.Tensor, density: float, rescale: bool) -> torch
 
 
 def prune(
-    tensor: torch.Tensor, density: float, method: Literal["magnitude", "random"], rescale: bool = False
+    tensor: torch.Tensor,
+    density: float,
+    method: Literal["magnitude", "random"],
+    rescale: bool = False,
 ) -> torch.Tensor:
     """
     Prune the values of task tensors based on the `method`.
@@ -88,7 +91,9 @@ def prune(
         `torch.Tensor`: The pruned tensor.
     """
     if density >= 1:
-        warnings.warn(f"The density {density} is greater than or equal to 1, no pruning will be performed.")
+        warnings.warn(
+            f"The density {density} is greater than or equal to 1, no pruning will be performed."
+        )
         return tensor
     elif density < 0:
         raise ValueError(f"Density should be >= 0, got {density}")
@@ -125,7 +130,9 @@ def calculate_majority_sign_mask(
     return sign == majority_sign
 
 
-def disjoint_merge(task_tensors: torch.Tensor, majority_sign_mask: torch.Tensor) -> torch.Tensor:
+def disjoint_merge(
+    task_tensors: torch.Tensor, majority_sign_mask: torch.Tensor
+) -> torch.Tensor:
     """
     Merge the task tensors using disjoint merge.
 
@@ -141,7 +148,9 @@ def disjoint_merge(task_tensors: torch.Tensor, majority_sign_mask: torch.Tensor)
     return mixed_task_tensors / torch.clamp(num_params_preserved, min=1.0)
 
 
-def task_arithmetic(task_tensors: List[torch.Tensor], weights: torch.Tensor) -> torch.Tensor:
+def task_arithmetic(
+    task_tensors: List[torch.Tensor], weights: torch.Tensor
+) -> torch.Tensor:
     """
     Merge the task tensors using `task arithmetic`.
 
@@ -160,7 +169,9 @@ def task_arithmetic(task_tensors: List[torch.Tensor], weights: torch.Tensor) -> 
     return mixed_task_tensors
 
 
-def magnitude_prune(task_tensors: List[torch.Tensor], weights: torch.Tensor, density: float) -> torch.Tensor:
+def magnitude_prune(
+    task_tensors: List[torch.Tensor], weights: torch.Tensor, density: float
+) -> torch.Tensor:
     """
     Merge the task tensors using `task arithmetic`.
 
@@ -173,7 +184,9 @@ def magnitude_prune(task_tensors: List[torch.Tensor], weights: torch.Tensor, den
         `torch.Tensor`: The merged tensor.
     """
     # sparsify
-    task_tensors = [prune(tensor, density, method="magnitude") for tensor in task_tensors]
+    task_tensors = [
+        prune(tensor, density, method="magnitude") for tensor in task_tensors
+    ]
     task_tensors = torch.stack(task_tensors, dim=0)
     # weighted task tensors
     weights = reshape_weight_task_tensors(task_tensors, weights)
@@ -202,10 +215,14 @@ def ties(
         `torch.Tensor`: The merged tensor.
     """
     # sparsify
-    task_tensors = [prune(tensor, density, method="magnitude") for tensor in task_tensors]
+    task_tensors = [
+        prune(tensor, density, method="magnitude") for tensor in task_tensors
+    ]
     task_tensors = torch.stack(task_tensors, dim=0)
     # Elect Sign
-    majority_sign_mask = calculate_majority_sign_mask(task_tensors, method=majority_sign_method)
+    majority_sign_mask = calculate_majority_sign_mask(
+        task_tensors, method=majority_sign_method
+    )
     # weighted task tensors
     weights = reshape_weight_task_tensors(task_tensors, weights)
     weighted_task_tensors = task_tensors * weights
@@ -214,7 +231,9 @@ def ties(
     return mixed_task_tensors
 
 
-def dare_linear(task_tensors: List[torch.Tensor], weights: torch.Tensor, density: float) -> torch.Tensor:
+def dare_linear(
+    task_tensors: List[torch.Tensor], weights: torch.Tensor, density: float
+) -> torch.Tensor:
     """
     Merge the task tensors using `dare linear`.
 
@@ -227,7 +246,9 @@ def dare_linear(task_tensors: List[torch.Tensor], weights: torch.Tensor, density
         `torch.Tensor`: The merged tensor.
     """
     # sparsify
-    task_tensors = [prune(tensor, density, method="random", rescale=True) for tensor in task_tensors]
+    task_tensors = [
+        prune(tensor, density, method="random", rescale=True) for tensor in task_tensors
+    ]
     task_tensors = torch.stack(task_tensors, dim=0)
     # weighted task tensors
     weights = reshape_weight_task_tensors(task_tensors, weights)
@@ -256,10 +277,14 @@ def dare_ties(
         `torch.Tensor`: The merged tensor.
     """
     # sparsify
-    task_tensors = [prune(tensor, density, method="random", rescale=True) for tensor in task_tensors]
+    task_tensors = [
+        prune(tensor, density, method="random", rescale=True) for tensor in task_tensors
+    ]
     task_tensors = torch.stack(task_tensors, dim=0)
     # Elect Sign
-    majority_sign_mask = calculate_majority_sign_mask(task_tensors, method=majority_sign_method)
+    majority_sign_mask = calculate_majority_sign_mask(
+        task_tensors, method=majority_sign_method
+    )
     # weighted task tensors
     weights = reshape_weight_task_tensors(task_tensors, weights)
     weighted_task_tensors = task_tensors * weights

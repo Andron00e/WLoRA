@@ -21,7 +21,6 @@ from peft import PrefixTuningConfig, PromptLearningConfig
 
 from .testing_common import PeftCommonTester, PeftTestConfigManager
 
-
 PEFT_FEATURE_EXTRACTION_MODELS_TO_TEST = [
     "hf-internal-testing/tiny-random-BertModel",
     "hf-internal-testing/tiny-random-RobertaModel",
@@ -38,7 +37,9 @@ FULL_GRID = {
 def skip_non_prompt_tuning(test_list):
     """Skip tests that are not prompt tuning"""
     return [
-        test for test in test_list if issubclass(test[2], PromptLearningConfig) and (test[2] != PrefixTuningConfig)
+        test
+        for test in test_list
+        if issubclass(test[2], PromptLearningConfig) and (test[2] != PrefixTuningConfig)
     ]
 
 
@@ -48,14 +49,22 @@ def skip_deberta_lora_tests(test_list):
     the error)
     """
     to_skip = ["lora", "ia3", "boft", "vera", "fourierft", "hra"]
-    return [test for test in test_list if not (any(k in test[0] for k in to_skip) and "Deberta" in test[0])]
+    return [
+        test
+        for test in test_list
+        if not (any(k in test[0] for k in to_skip) and "Deberta" in test[0])
+    ]
 
 
 def skip_deberta_pt_tests(test_list):
     r"""
     Skip tests that are checkpointing with lora/ia3 tests for Deberta models (couldn't find much info on the error)
     """
-    return [test for test in test_list if not ("prefix_tuning" in test[0] and "Deberta" in test[0])]
+    return [
+        test
+        for test in test_list
+        if not ("prefix_tuning" in test[0] and "Deberta" in test[0])
+    ]
 
 
 class PeftFeatureExtractionModelTester(unittest.TestCase, PeftCommonTester):
@@ -80,7 +89,9 @@ class PeftFeatureExtractionModelTester(unittest.TestCase, PeftCommonTester):
         return input_dict
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
-    def test_attributes_parametrized(self, test_name, model_id, config_cls, config_kwargs):
+    def test_attributes_parametrized(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_model_attr(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
@@ -88,7 +99,9 @@ class PeftFeatureExtractionModelTester(unittest.TestCase, PeftCommonTester):
         self._test_adapter_name(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
-    def test_prepare_for_training_parametrized(self, test_name, model_id, config_cls, config_kwargs):
+    def test_prepare_for_training_parametrized(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_prepare_for_training(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
@@ -96,12 +109,20 @@ class PeftFeatureExtractionModelTester(unittest.TestCase, PeftCommonTester):
         self._test_save_pretrained(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
-    def test_save_pretrained_selected_adapters(self, test_name, model_id, config_cls, config_kwargs):
-        self._test_save_pretrained_selected_adapters(model_id, config_cls, config_kwargs)
+    def test_save_pretrained_selected_adapters(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
+        self._test_save_pretrained_selected_adapters(
+            model_id, config_cls, config_kwargs
+        )
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
-    def test_from_pretrained_config_construction(self, test_name, model_id, config_cls, config_kwargs):
-        self._test_from_pretrained_config_construction(model_id, config_cls, config_kwargs)
+    def test_from_pretrained_config_construction(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
+        self._test_from_pretrained_config_construction(
+            model_id, config_cls, config_kwargs
+        )
 
     @parameterized.expand(
         PeftTestConfigManager.get_grid_parameters(
@@ -125,27 +146,41 @@ class PeftFeatureExtractionModelTester(unittest.TestCase, PeftCommonTester):
         self._test_training(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(
-        PeftTestConfigManager.get_grid_parameters(FULL_GRID, filter_params_func=skip_deberta_pt_tests)
+        PeftTestConfigManager.get_grid_parameters(
+            FULL_GRID, filter_params_func=skip_deberta_pt_tests
+        )
     )
-    def test_training_prompt_learning_tasks(self, test_name, model_id, config_cls, config_kwargs):
+    def test_training_prompt_learning_tasks(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_training_prompt_learning_tasks(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
-    def test_training_layer_indexing(self, test_name, model_id, config_cls, config_kwargs):
+    def test_training_layer_indexing(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_training_layer_indexing(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(
-        PeftTestConfigManager.get_grid_parameters(FULL_GRID, filter_params_func=skip_deberta_lora_tests)
+        PeftTestConfigManager.get_grid_parameters(
+            FULL_GRID, filter_params_func=skip_deberta_lora_tests
+        )
     )
-    def test_training_gradient_checkpointing(self, test_name, model_id, config_cls, config_kwargs):
+    def test_training_gradient_checkpointing(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_training_gradient_checkpointing(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
-    def test_inference_safetensors(self, test_name, model_id, config_cls, config_kwargs):
+    def test_inference_safetensors(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_inference_safetensors(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
-    def test_peft_model_device_map(self, test_name, model_id, config_cls, config_kwargs):
+    def test_peft_model_device_map(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_peft_model_device_map(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
@@ -153,7 +188,9 @@ class PeftFeatureExtractionModelTester(unittest.TestCase, PeftCommonTester):
         self._test_delete_adapter(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(PeftTestConfigManager.get_grid_parameters(FULL_GRID))
-    def test_delete_inactive_adapter(self, test_name, model_id, config_cls, config_kwargs):
+    def test_delete_inactive_adapter(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_delete_inactive_adapter(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(
@@ -185,11 +222,19 @@ class PeftFeatureExtractionModelTester(unittest.TestCase, PeftCommonTester):
             },
         )
     )
-    def test_weighted_combination_of_adapters(self, test_name, model_id, config_cls, config_kwargs):
+    def test_weighted_combination_of_adapters(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
         self._test_weighted_combination_of_adapters(model_id, config_cls, config_kwargs)
 
     @parameterized.expand(
-        PeftTestConfigManager.get_grid_parameters(FULL_GRID, filter_params_func=skip_non_prompt_tuning)
+        PeftTestConfigManager.get_grid_parameters(
+            FULL_GRID, filter_params_func=skip_non_prompt_tuning
+        )
     )
-    def test_passing_input_embeds_works(self, test_name, model_id, config_cls, config_kwargs):
-        self._test_passing_input_embeds_works(test_name, model_id, config_cls, config_kwargs)
+    def test_passing_input_embeds_works(
+        self, test_name, model_id, config_cls, config_kwargs
+    ):
+        self._test_passing_input_embeds_works(
+            test_name, model_id, config_cls, config_kwargs
+        )

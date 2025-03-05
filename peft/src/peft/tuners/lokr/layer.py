@@ -70,7 +70,9 @@ class LoKrLayer(nn.Module, LycorisLayer):
         use_effective_conv2d: bool,
     ):
         if use_w1:
-            self.lokr_w1[adapter_name] = nn.Parameter(torch.empty(shape[0][0], shape[1][0]))
+            self.lokr_w1[adapter_name] = nn.Parameter(
+                torch.empty(shape[0][0], shape[1][0])
+            )
         else:
             self.lokr_w1_a[adapter_name] = nn.Parameter(torch.empty(shape[0][0], r))
             self.lokr_w1_b[adapter_name] = nn.Parameter(torch.empty(r, shape[1][0]))
@@ -78,18 +80,30 @@ class LoKrLayer(nn.Module, LycorisLayer):
         if len(shape) == 4:
             # Conv2d
             if use_w2:
-                self.lokr_w2[adapter_name] = nn.Parameter(torch.empty(shape[0][1], shape[1][1], *shape[2:]))
+                self.lokr_w2[adapter_name] = nn.Parameter(
+                    torch.empty(shape[0][1], shape[1][1], *shape[2:])
+                )
             elif use_effective_conv2d:
-                self.lokr_t2[adapter_name] = nn.Parameter(torch.empty(r, r, shape[2], shape[3]))
-                self.lokr_w2_a[adapter_name] = nn.Parameter(torch.empty(r, shape[0][1]))  # b, 1-mode
-                self.lokr_w2_b[adapter_name] = nn.Parameter(torch.empty(r, shape[1][1]))  # d, 2-mode
+                self.lokr_t2[adapter_name] = nn.Parameter(
+                    torch.empty(r, r, shape[2], shape[3])
+                )
+                self.lokr_w2_a[adapter_name] = nn.Parameter(
+                    torch.empty(r, shape[0][1])
+                )  # b, 1-mode
+                self.lokr_w2_b[adapter_name] = nn.Parameter(
+                    torch.empty(r, shape[1][1])
+                )  # d, 2-mode
             else:
                 self.lokr_w2_a[adapter_name] = nn.Parameter(torch.empty(shape[0][1], r))
-                self.lokr_w2_b[adapter_name] = nn.Parameter(torch.empty(r, shape[1][1] * shape[2] * shape[3]))
+                self.lokr_w2_b[adapter_name] = nn.Parameter(
+                    torch.empty(r, shape[1][1] * shape[2] * shape[3])
+                )
         else:
             # Linear
             if use_w2:
-                self.lokr_w2[adapter_name] = nn.Parameter(torch.empty(shape[0][1], shape[1][1]))
+                self.lokr_w2[adapter_name] = nn.Parameter(
+                    torch.empty(shape[0][1], shape[1][1])
+                )
             else:
                 self.lokr_w2_a[adapter_name] = nn.Parameter(torch.empty(shape[0][1], r))
                 self.lokr_w2_b[adapter_name] = nn.Parameter(torch.empty(r, shape[1][1]))
@@ -153,7 +167,9 @@ class LoKrLayer(nn.Module, LycorisLayer):
             decompose_factor (`int`): Kronecker product decomposition factor.
         """
         if r <= 0:
-            raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
+            raise ValueError(
+                f"`r` should be a positive integer value but the value passed is {r}"
+            )
 
         self.r[adapter_name] = r
         self.lora_alpha[adapter_name] = lora_alpha
@@ -168,7 +184,10 @@ class LoKrLayer(nn.Module, LycorisLayer):
 
             in_m, in_n = factorization(in_dim, decompose_factor)
             out_l, out_k = factorization(out_dim, decompose_factor)
-            shape = ((out_l, out_k), (in_m, in_n))  # ((a, b), (c, d)), out_dim = a*c, in_dim = b*d
+            shape = (
+                (out_l, out_k),
+                (in_m, in_n),
+            )  # ((a, b), (c, d)), out_dim = a*c, in_dim = b*d
 
             use_w1 = not (decompose_both and r < max(shape[0][0], shape[1][0]) / 2)
             use_w2 = not (r < max(shape[0][1], shape[1][1]) / 2)
@@ -183,12 +202,19 @@ class LoKrLayer(nn.Module, LycorisLayer):
 
             use_w1 = not (decompose_both and r < max(shape[0][0], shape[1][0]) / 2)
             use_w2 = r >= max(shape[0][1], shape[1][1]) / 2
-            use_effective_conv2d = use_effective_conv2d and base_layer.kernel_size != (1, 1)
+            use_effective_conv2d = use_effective_conv2d and base_layer.kernel_size != (
+                1,
+                1,
+            )
         else:
-            raise TypeError(f"LoKr is not implemented for base layers of type {type(base_layer).__name__}")
+            raise TypeError(
+                f"LoKr is not implemented for base layers of type {type(base_layer).__name__}"
+            )
 
         # Create weights with provided shape
-        self.create_adapter_parameters(adapter_name, r, shape, use_w1, use_w2, use_effective_conv2d)
+        self.create_adapter_parameters(
+            adapter_name, r, shape, use_w1, use_w2, use_effective_conv2d
+        )
 
         # Initialize weights
         if init_weights:
@@ -210,7 +236,11 @@ class LoKrLayer(nn.Module, LycorisLayer):
         if adapter_name in self.lokr_w2:
             w2 = self.lokr_w2[adapter_name]
         elif adapter_name in self.lokr_t2:
-            w2 = make_weight_cp(self.lokr_t2[adapter_name], self.lokr_w2_a[adapter_name], self.lokr_w2_b[adapter_name])
+            w2 = make_weight_cp(
+                self.lokr_t2[adapter_name],
+                self.lokr_w2_a[adapter_name],
+                self.lokr_w2_b[adapter_name],
+            )
         else:
             w2 = self.lokr_w2_a[adapter_name] @ self.lokr_w2_b[adapter_name]
 
@@ -248,8 +278,12 @@ class LoKrLayer(nn.Module, LycorisLayer):
                 module_dropout = self.module_dropout[active_adapter]
 
                 # Modify current execution weights
-                if (not self.training) or (self.training and torch.rand(1) > module_dropout):
-                    result = result + self._get_delta_activations(active_adapter, x, *args, **kwargs)
+                if (not self.training) or (
+                    self.training and torch.rand(1) > module_dropout
+                ):
+                    result = result + self._get_delta_activations(
+                        active_adapter, x, *args, **kwargs
+                    )
 
         result = result.to(previous_dtype)
         return result
@@ -275,7 +309,15 @@ class Linear(LoKrLayer):
 
         # Create adapter and set it active
         self._active_adapter = adapter_name
-        self.update_layer(adapter_name, r, lora_alpha, rank_dropout, module_dropout, init_weights, **kwargs)
+        self.update_layer(
+            adapter_name,
+            r,
+            lora_alpha,
+            rank_dropout,
+            module_dropout,
+            init_weights,
+            **kwargs,
+        )
 
     def _get_delta_activations(
         self, adapter_name: str, input: torch.Tensor, *args: Any, **kwargs: Any
@@ -311,7 +353,14 @@ class Conv2d(LoKrLayer):
         # Create adapter and set it active
         self._active_adapter = adapter_name
         self.update_layer(
-            adapter_name, r, lora_alpha, rank_dropout, module_dropout, init_weights, use_effective_conv2d, **kwargs
+            adapter_name,
+            r,
+            lora_alpha,
+            rank_dropout,
+            module_dropout,
+            init_weights,
+            use_effective_conv2d,
+            **kwargs,
         )
 
     def _get_delta_activations(

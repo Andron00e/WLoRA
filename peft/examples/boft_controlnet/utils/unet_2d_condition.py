@@ -19,7 +19,6 @@ import torch
 from diffusers.models import UNet2DConditionModel
 from diffusers.utils import BaseOutput, logging
 
-
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 
@@ -108,7 +107,9 @@ class UNet2DConditionNewModel(UNet2DConditionModel):
 
         # convert encoder_attention_mask to a bias the same way we do for attention_mask
         if encoder_attention_mask is not None:
-            encoder_attention_mask = (1 - encoder_attention_mask.to(sample.dtype)) * -10000.0
+            encoder_attention_mask = (
+                1 - encoder_attention_mask.to(sample.dtype)
+            ) * -10000.0
             encoder_attention_mask = encoder_attention_mask.unsqueeze(1)
 
         # 0. center input if necessary
@@ -143,7 +144,9 @@ class UNet2DConditionNewModel(UNet2DConditionModel):
 
         if self.class_embedding is not None:
             if class_labels is None:
-                raise ValueError("class_labels should be provided when num_class_embeds > 0")
+                raise ValueError(
+                    "class_labels should be provided when num_class_embeds > 0"
+                )
 
             if self.config.class_embed_type == "timestep":
                 class_labels = self.time_proj(class_labels)
@@ -178,9 +181,15 @@ class UNet2DConditionNewModel(UNet2DConditionModel):
         if self.time_embed_act is not None:
             emb = self.time_embed_act(emb)
 
-        if self.encoder_hid_proj is not None and self.config.encoder_hid_dim_type == "text_proj":
+        if (
+            self.encoder_hid_proj is not None
+            and self.config.encoder_hid_dim_type == "text_proj"
+        ):
             encoder_hidden_states = self.encoder_hid_proj(encoder_hidden_states)
-        elif self.encoder_hid_proj is not None and self.config.encoder_hid_dim_type == "text_image_proj":
+        elif (
+            self.encoder_hid_proj is not None
+            and self.config.encoder_hid_dim_type == "text_image_proj"
+        ):
             # Kadinsky 2.1 - style
             if "image_embeds" not in added_cond_kwargs:
                 raise ValueError(
@@ -188,7 +197,9 @@ class UNet2DConditionNewModel(UNet2DConditionModel):
                 )
 
             image_embeds = added_cond_kwargs.get("image_embeds")
-            encoder_hidden_states = self.encoder_hid_proj(encoder_hidden_states, image_embeds)
+            encoder_hidden_states = self.encoder_hid_proj(
+                encoder_hidden_states, image_embeds
+            )
 
         # 2. pre-process and insert conditioning (ControlNet)
         # Note: the added "guided_hint" is the only difference between this implementation and the original UNet2DConditionModel
@@ -198,7 +209,10 @@ class UNet2DConditionNewModel(UNet2DConditionModel):
         # 3. down
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
-            if hasattr(downsample_block, "has_cross_attention") and downsample_block.has_cross_attention:
+            if (
+                hasattr(downsample_block, "has_cross_attention")
+                and downsample_block.has_cross_attention
+            ):
                 sample, res_samples = downsample_block(
                     hidden_states=sample,
                     temb=emb,
@@ -218,8 +232,12 @@ class UNet2DConditionNewModel(UNet2DConditionModel):
             for down_block_res_sample, down_block_additional_residual in zip(
                 down_block_res_samples, down_block_additional_residuals
             ):
-                down_block_res_sample = down_block_res_sample + down_block_additional_residual
-                new_down_block_res_samples = new_down_block_res_samples + (down_block_res_sample,)
+                down_block_res_sample = (
+                    down_block_res_sample + down_block_additional_residual
+                )
+                new_down_block_res_samples = new_down_block_res_samples + (
+                    down_block_res_sample,
+                )
 
             down_block_res_samples = new_down_block_res_samples
 
@@ -242,14 +260,19 @@ class UNet2DConditionNewModel(UNet2DConditionModel):
             is_final_block = i == len(self.up_blocks) - 1
 
             res_samples = down_block_res_samples[-len(upsample_block.resnets) :]
-            down_block_res_samples = down_block_res_samples[: -len(upsample_block.resnets)]
+            down_block_res_samples = down_block_res_samples[
+                : -len(upsample_block.resnets)
+            ]
 
             # if we have not reached the final block and need to forward the
             # upsample size, we do it here
             if not is_final_block and forward_upsample_size:
                 upsample_size = down_block_res_samples[-1].shape[2:]
 
-            if hasattr(upsample_block, "has_cross_attention") and upsample_block.has_cross_attention:
+            if (
+                hasattr(upsample_block, "has_cross_attention")
+                and upsample_block.has_cross_attention
+            ):
                 sample = upsample_block(
                     hidden_states=sample,
                     temb=emb,
@@ -262,7 +285,10 @@ class UNet2DConditionNewModel(UNet2DConditionModel):
                 )
             else:
                 sample = upsample_block(
-                    hidden_states=sample, temb=emb, res_hidden_states_tuple=res_samples, upsample_size=upsample_size
+                    hidden_states=sample,
+                    temb=emb,
+                    res_hidden_states_tuple=res_samples,
+                    upsample_size=upsample_size,
                 )
 
         # 6. post-process

@@ -25,34 +25,16 @@ import os
 import pytest
 import torch
 from datasets import load_dataset
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    DataCollatorForLanguageModeling,
-    Trainer,
-    TrainingArguments,
-)
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BitsAndBytesConfig, DataCollatorForLanguageModeling,
+                          Trainer, TrainingArguments)
 
-from peft import (
-    AdaLoraConfig,
-    BOFTConfig,
-    HRAConfig,
-    IA3Config,
-    LNTuningConfig,
-    LoHaConfig,
-    LoKrConfig,
-    LoraConfig,
-    OFTConfig,
-    PeftModel,
-    TaskType,
-    VBLoRAConfig,
-    VeraConfig,
-    get_peft_model,
-)
+from peft import (AdaLoraConfig, BOFTConfig, HRAConfig, IA3Config,
+                  LNTuningConfig, LoHaConfig, LoKrConfig, LoraConfig,
+                  OFTConfig, PeftModel, TaskType, VBLoRAConfig, VeraConfig,
+                  get_peft_model)
 
 from .testing_utils import require_bitsandbytes
-
 
 # only run (very slow) torch.compile tests when explicitly asked to
 if os.environ.get("PEFT_DEBUG_WITH_TORCH_COMPILE") != "1":
@@ -65,10 +47,23 @@ SETTINGS = {
     "boft": (BOFTConfig(task_type=TaskType.CAUSAL_LM), {}),
     "dora": (LoraConfig(task_type=TaskType.CAUSAL_LM, use_dora=True), {}),
     "ia3": (IA3Config(task_type=TaskType.CAUSAL_LM), {}),
-    "ln_tuning": (LNTuningConfig(task_type=TaskType.CAUSAL_LM, target_modules=["final_layer_norm"]), {}),
-    "loha": (LoHaConfig(task_type=TaskType.CAUSAL_LM, target_modules=["q_proj", "v_proj"]), {}),
+    "ln_tuning": (
+        LNTuningConfig(
+            task_type=TaskType.CAUSAL_LM, target_modules=["final_layer_norm"]
+        ),
+        {},
+    ),
+    "loha": (
+        LoHaConfig(task_type=TaskType.CAUSAL_LM, target_modules=["q_proj", "v_proj"]),
+        {},
+    ),
     "lokr": pytest.param(
-        (LoKrConfig(task_type=TaskType.CAUSAL_LM, target_modules=["q_proj", "v_proj"]), {}),
+        (
+            LoKrConfig(
+                task_type=TaskType.CAUSAL_LM, target_modules=["q_proj", "v_proj"]
+            ),
+            {},
+        ),
         marks=pytest.mark.xfail(strict=True),
     ),
     "lora": (LoraConfig(task_type=TaskType.CAUSAL_LM), {}),
@@ -76,11 +71,27 @@ SETTINGS = {
         (LoraConfig(task_type=TaskType.CAUSAL_LM, target_modules=["embed_tokens"]), {}),
         marks=pytest.mark.xfail(strict=True),
     ),
-    "lora-with-modules-to-save": (LoraConfig(task_type=TaskType.CAUSAL_LM, modules_to_save=["embed_tokens"]), {}),
-    "oft": (OFTConfig(task_type=TaskType.CAUSAL_LM, target_modules=["q_proj", "v_proj"]), {}),
-    "vblora": (VBLoRAConfig(task_type=TaskType.CAUSAL_LM, target_modules=["q_proj", "v_proj"], vector_length=2), {}),
+    "lora-with-modules-to-save": (
+        LoraConfig(task_type=TaskType.CAUSAL_LM, modules_to_save=["embed_tokens"]),
+        {},
+    ),
+    "oft": (
+        OFTConfig(task_type=TaskType.CAUSAL_LM, target_modules=["q_proj", "v_proj"]),
+        {},
+    ),
+    "vblora": (
+        VBLoRAConfig(
+            task_type=TaskType.CAUSAL_LM,
+            target_modules=["q_proj", "v_proj"],
+            vector_length=2,
+        ),
+        {},
+    ),
     "vera": (VeraConfig(task_type=TaskType.CAUSAL_LM), {}),
-    "hra": (HRAConfig(task_type=TaskType.CAUSAL_LM, target_modules=["q_proj", "v_proj"]), {}),
+    "hra": (
+        HRAConfig(task_type=TaskType.CAUSAL_LM, target_modules=["q_proj", "v_proj"]),
+        {},
+    ),
 }
 
 
@@ -124,9 +135,13 @@ class TestTorchCompileCausalLM:
             # For some reason, the max sequence length is not honored by the tokenizer, resulting in IndexErrors. Thus,
             # manually ensure that sequences are not too long.
             tokenized = tokenizer(samples["quote"])
-            tokenized["input_ids"] = [input_ids[: tokenizer.model_max_length] for input_ids in tokenized["input_ids"]]
+            tokenized["input_ids"] = [
+                input_ids[: tokenizer.model_max_length]
+                for input_ids in tokenized["input_ids"]
+            ]
             tokenized["attention_mask"] = [
-                input_ids[: tokenizer.model_max_length] for input_ids in tokenized["attention_mask"]
+                input_ids[: tokenizer.model_max_length]
+                for input_ids in tokenized["attention_mask"]
             ]
             return tokenized
 
@@ -148,7 +163,9 @@ class TestTorchCompileCausalLM:
         return torch.compile(model, **compile_kwargs)
 
     @pytest.mark.parametrize("settings", SETTINGS.values(), ids=SETTINGS.keys())
-    def test_causal_lm_training_trainer_compile(self, settings, tokenizer, data, tmp_path):
+    def test_causal_lm_training_trainer_compile(
+        self, settings, tokenizer, data, tmp_path
+    ):
         r"""Train a PEFT model with torch.compile using Trainer"""
         tmp_dir = tmp_path / "model"
         config, compile_kwargs = settings
@@ -199,7 +216,9 @@ class TestTorchCompileCausalLM:
             tokens_after = model.generate(sample)
         assert torch.isfinite(output_after.logits).all()
         # sanity check: model was updated
-        assert not torch.allclose(output_before.logits, output_after.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_before.logits, output_after.logits, atol=atol, rtol=rtol
+        )
         assert trainer.state.log_history[-1]["train_loss"] < self.max_train_loss
 
         # check saving the model and loading it without compile
@@ -211,11 +230,15 @@ class TestTorchCompileCausalLM:
         with torch.inference_mode():
             output_loaded = model(sample)
             tokens_loaded = model.generate(sample)
-        assert torch.allclose(output_after.logits, output_loaded.logits, atol=atol, rtol=rtol)
+        assert torch.allclose(
+            output_after.logits, output_loaded.logits, atol=atol, rtol=rtol
+        )
         assert (tokens_after == tokens_loaded).all()
 
     @pytest.mark.parametrize("settings", SETTINGS.values(), ids=SETTINGS.keys())
-    def test_causal_lm_training_pytorch_compile(self, settings, tokenizer, data, tmp_path):
+    def test_causal_lm_training_pytorch_compile(
+        self, settings, tokenizer, data, tmp_path
+    ):
         r"""Train a PEFT model with torch.compile using PyTorch training loop"""
         torch.manual_seed(0)
         model = AutoModelForCausalLM.from_pretrained(
@@ -241,7 +264,9 @@ class TestTorchCompileCausalLM:
         losses = []
         max_steps = 5 * batch_size
         for i in range(0, max_steps, batch_size):
-            batch = tokenizer.pad(data["train"][i : i + batch_size], return_tensors="pt").to(model.device)
+            batch = tokenizer.pad(
+                data["train"][i : i + batch_size], return_tensors="pt"
+            ).to(model.device)
             # add targets
             batch["labels"] = batch["input_ids"].clone()
             optimizer.zero_grad()
@@ -260,7 +285,9 @@ class TestTorchCompileCausalLM:
         assert torch.isfinite(output_after.logits).all()
         atol, rtol = 1e-4, 1e-4
         # sanity check: model was updated
-        assert not torch.allclose(output_before.logits, output_after.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_before.logits, output_after.logits, atol=atol, rtol=rtol
+        )
         assert losses[-1] < self.max_train_loss
 
         # check saving the model and loading it without compile
@@ -272,7 +299,9 @@ class TestTorchCompileCausalLM:
         with torch.inference_mode():
             output_loaded = model(sample)
             tokens_loaded = model.generate(sample)
-        assert torch.allclose(output_after.logits, output_loaded.logits, atol=atol, rtol=rtol)
+        assert torch.allclose(
+            output_after.logits, output_loaded.logits, atol=atol, rtol=rtol
+        )
         assert (tokens_after == tokens_loaded).all()
 
     @require_bitsandbytes
@@ -302,7 +331,9 @@ class TestTorchCompileCausalLM:
         losses = []
         max_steps = 5 * batch_size
         for i in range(0, max_steps, batch_size):
-            batch = tokenizer.pad(data["train"][i : i + batch_size], return_tensors="pt").to(model.device)
+            batch = tokenizer.pad(
+                data["train"][i : i + batch_size], return_tensors="pt"
+            ).to(model.device)
             # add targets
             batch["labels"] = batch["input_ids"].clone()
             optimizer.zero_grad()
@@ -318,7 +349,9 @@ class TestTorchCompileCausalLM:
         assert torch.isfinite(output_after.logits).all()
         atol, rtol = 1e-4, 1e-4
         # sanity check: model was updated
-        assert not torch.allclose(output_before.logits, output_after.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_before.logits, output_after.logits, atol=atol, rtol=rtol
+        )
         assert losses[-1] < self.max_train_loss
 
         # check saving the model and loading it without compile
@@ -326,14 +359,18 @@ class TestTorchCompileCausalLM:
         del model
         torch.manual_seed(0)
         model = AutoModelForCausalLM.from_pretrained(
-            self.model_id, device_map="auto", quantization_config=BitsAndBytesConfig(load_in_4bit=True)
+            self.model_id,
+            device_map="auto",
+            quantization_config=BitsAndBytesConfig(load_in_4bit=True),
         )
         model = PeftModel.from_pretrained(model, tmp_path)
 
         with torch.inference_mode():
             # after loading, outputs are float32 for some reason
             output_loaded = model(sample)
-        assert torch.allclose(output_after.logits, output_loaded.logits, atol=atol, rtol=rtol)
+        assert torch.allclose(
+            output_after.logits, output_loaded.logits, atol=atol, rtol=rtol
+        )
 
     @pytest.mark.xfail(strict=True)
     @require_bitsandbytes
@@ -362,9 +399,18 @@ class TestTorchCompileCausalLM:
 
         atol, rtol = 1e-4, 1e-4
         # outputs of the base model != output of default adapter != output of other adapter
-        assert not torch.allclose(output_base.logits, output_default_adapter.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_base.logits, output_other_adapter.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_default_adapter.logits, output_other_adapter.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_base.logits, output_default_adapter.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_base.logits, output_other_adapter.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_default_adapter.logits,
+            output_other_adapter.logits,
+            atol=atol,
+            rtol=rtol,
+        )
 
         # now delete the other adapter
         model.delete_adapter("other")
@@ -373,7 +419,12 @@ class TestTorchCompileCausalLM:
             output_after_delete = model(sample)
 
         # outputs after delete == output of default adapter
-        assert torch.allclose(output_default_adapter.logits, output_after_delete.logits, atol=atol, rtol=rtol)
+        assert torch.allclose(
+            output_default_adapter.logits,
+            output_after_delete.logits,
+            atol=atol,
+            rtol=rtol,
+        )
 
     @pytest.mark.xfail(strict=True)
     def test_causal_lm_disable_lora_adapter_compile(self, tokenizer, data):
@@ -398,8 +449,12 @@ class TestTorchCompileCausalLM:
 
         atol, rtol = 1e-4, 1e-4
         # outputs of the base model == output disabled adapter != output of lora adapter
-        assert torch.allclose(output_base.logits, output_disabled.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_base.logits, output_lora.logits, atol=atol, rtol=rtol)
+        assert torch.allclose(
+            output_base.logits, output_disabled.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_base.logits, output_lora.logits, atol=atol, rtol=rtol
+        )
 
     @require_bitsandbytes
     def test_causal_lm_merging_lora_adapter_compile(self, tokenizer, data):
@@ -426,8 +481,12 @@ class TestTorchCompileCausalLM:
         # merging is less precise, be more tolerant
         atol, rtol = 1e-1, 1e-1
         # outputs of the base model != output of lora adapter == output of merged adapter
-        assert not torch.allclose(output_base.logits, output_lora.logits, atol=atol, rtol=rtol)
-        assert torch.allclose(output_lora.logits, output_merged.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_base.logits, output_lora.logits, atol=atol, rtol=rtol
+        )
+        assert torch.allclose(
+            output_lora.logits, output_merged.logits, atol=atol, rtol=rtol
+        )
 
     @require_bitsandbytes
     def test_causal_lm_merging_multiple_lora_adapters_compile(self, tokenizer, data):
@@ -459,13 +518,25 @@ class TestTorchCompileCausalLM:
         # merging is less precise, be more tolerant
         atol, rtol = 1e-1, 1e-1
         # outputs of the base model != output of default adapter != output of other adapter
-        assert not torch.allclose(output_base.logits, output_default.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_base.logits, output_other.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_default.logits, output_other.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_base.logits, output_default.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_base.logits, output_other.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_default.logits, output_other.logits, atol=atol, rtol=rtol
+        )
         # outputs of merged adapter != all others
-        assert not torch.allclose(output_base.logits, output_merged.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_default.logits, output_merged.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_other.logits, output_merged.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_base.logits, output_merged.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_default.logits, output_merged.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_other.logits, output_merged.logits, atol=atol, rtol=rtol
+        )
 
     @require_bitsandbytes
     @pytest.mark.xfail(strict=True)
@@ -493,8 +564,12 @@ class TestTorchCompileCausalLM:
         # merging is less precise, be more tolerant
         atol, rtol = 1e-1, 1e-1
         # outputs of the base model != output of lora adapter == output of unloaded adapter
-        assert not torch.allclose(output_base.logits, output_lora.logits, atol=atol, rtol=rtol)
-        assert torch.allclose(output_lora.logits, output_unloaded.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_base.logits, output_lora.logits, atol=atol, rtol=rtol
+        )
+        assert torch.allclose(
+            output_lora.logits, output_unloaded.logits, atol=atol, rtol=rtol
+        )
 
     @require_bitsandbytes
     @pytest.mark.xfail(strict=True)
@@ -534,13 +609,25 @@ class TestTorchCompileCausalLM:
 
         atol, rtol = 1e-4, 1e-4
         # outputs of the base model != output of lora adapter 1 != output of other adapter
-        assert not torch.allclose(output_base.logits, output_default.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_default.logits, output_other.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_other.logits, output_mixed.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_base.logits, output_default.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_default.logits, output_other.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_other.logits, output_mixed.logits, atol=atol, rtol=rtol
+        )
         # outputs of mixed adapter is mix of all 3
-        assert torch.allclose(output_base.logits[0], output_mixed.logits[0], atol=atol, rtol=rtol)
-        assert torch.allclose(output_default.logits[1], output_mixed.logits[1], atol=atol, rtol=rtol)
-        assert torch.allclose(output_other.logits[2], output_mixed.logits[2], atol=atol, rtol=rtol)
+        assert torch.allclose(
+            output_base.logits[0], output_mixed.logits[0], atol=atol, rtol=rtol
+        )
+        assert torch.allclose(
+            output_default.logits[1], output_mixed.logits[1], atol=atol, rtol=rtol
+        )
+        assert torch.allclose(
+            output_other.logits[2], output_mixed.logits[2], atol=atol, rtol=rtol
+        )
 
     @require_bitsandbytes
     def test_causal_lm_add_weighted_adapter_lora_adapter_compile(self, tokenizer, data):
@@ -564,17 +651,31 @@ class TestTorchCompileCausalLM:
         with torch.inference_mode():
             output_other = model(sample)
 
-        model.add_weighted_adapter(["default", "other"], [0.5, 0.5], adapter_name="combined")
+        model.add_weighted_adapter(
+            ["default", "other"], [0.5, 0.5], adapter_name="combined"
+        )
         model.set_adapter("combined")
         with torch.inference_mode():
             output_combined = model(sample)
 
         atol, rtol = 1e-4, 1e-4
         # outputs of the base model != output of default adapter != output of other adapter
-        assert not torch.allclose(output_base.logits, output_default.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_base.logits, output_other.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_default.logits, output_other.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_base.logits, output_default.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_base.logits, output_other.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_default.logits, output_other.logits, atol=atol, rtol=rtol
+        )
         # outputs of combined adapter != all others
-        assert not torch.allclose(output_base.logits, output_combined.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_default.logits, output_combined.logits, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_other.logits, output_combined.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_base.logits, output_combined.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_default.logits, output_combined.logits, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_other.logits, output_combined.logits, atol=atol, rtol=rtol
+        )

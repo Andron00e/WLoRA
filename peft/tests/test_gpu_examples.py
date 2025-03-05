@@ -31,51 +31,26 @@ from packaging import version
 from parameterized import parameterized
 from torch.distributed import init_process_group
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from transformers import (
-    AutoModelForCausalLM,
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    DataCollatorForLanguageModeling,
-    Seq2SeqTrainer,
-    Seq2SeqTrainingArguments,
-    Trainer,
-    TrainingArguments,
-    WhisperFeatureExtractor,
-    WhisperForConditionalGeneration,
-    WhisperProcessor,
-    WhisperTokenizer,
-)
+from transformers import (AutoModelForCausalLM, AutoModelForSeq2SeqLM,
+                          AutoTokenizer, BitsAndBytesConfig,
+                          DataCollatorForLanguageModeling, Seq2SeqTrainer,
+                          Seq2SeqTrainingArguments, Trainer, TrainingArguments,
+                          WhisperFeatureExtractor,
+                          WhisperForConditionalGeneration, WhisperProcessor,
+                          WhisperTokenizer)
 
-from peft import (
-    AdaLoraConfig,
-    LoftQConfig,
-    LoraConfig,
-    PeftModel,
-    PromptEncoderConfig,
-    TaskType,
-    get_peft_model,
-    prepare_model_for_kbit_training,
-    replace_lora_weights_loftq,
-)
+from peft import (AdaLoraConfig, LoftQConfig, LoraConfig, PeftModel,
+                  PromptEncoderConfig, TaskType, get_peft_model,
+                  prepare_model_for_kbit_training, replace_lora_weights_loftq)
 from peft.tuners import boft
 from peft.utils import SAFETENSORS_WEIGHTS_NAME, infer_device
 from peft.utils.loftq_utils import NFQuantizer
 from peft.utils.other import fsdp_auto_wrap_policy
 
-from .testing_utils import (
-    require_aqlm,
-    require_auto_awq,
-    require_auto_gptq,
-    require_bitsandbytes,
-    require_eetq,
-    require_hqq,
-    require_non_cpu,
-    require_optimum,
-    require_torch_gpu,
-    require_torch_multi_gpu,
-)
-
+from .testing_utils import (require_aqlm, require_auto_awq, require_auto_gptq,
+                            require_bitsandbytes, require_eetq, require_hqq,
+                            require_non_cpu, require_optimum,
+                            require_torch_gpu, require_torch_multi_gpu)
 
 # A full testing suite that tests all the necessary features on GPU. The tests should
 # rely on the example scripts to test the features.
@@ -90,11 +65,17 @@ class DataCollatorSpeechSeq2SeqWithPadding:
 
     processor: Any
 
-    def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
+    def __call__(
+        self, features: List[Dict[str, Union[List[int], torch.Tensor]]]
+    ) -> Dict[str, torch.Tensor]:
         # split inputs and labels since they have to be of different lengths and need different padding methods
         # first treat the audio inputs by simply returning torch tensors
-        input_features = [{"input_features": feature["input_features"]} for feature in features]
-        batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+        input_features = [
+            {"input_features": feature["input_features"]} for feature in features
+        ]
+        batch = self.processor.feature_extractor.pad(
+            input_features, return_tensors="pt"
+        )
 
         # get the tokenized label sequences
         label_features = [{"input_ids": feature["labels"]} for feature in features]
@@ -102,7 +83,9 @@ class DataCollatorSpeechSeq2SeqWithPadding:
         labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
 
         # replace padding with -100 to ignore loss correctly
-        labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
+        labels = labels_batch["input_ids"].masked_fill(
+            labels_batch.attention_mask.ne(1), -100
+        )
 
         # if bos token is appended in previous tokenization step,
         # cut bos token here as it's append later anyways
@@ -286,7 +269,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
                 quantization_config=BitsAndBytesConfig(load_in_4bit=True),
             )
 
-            assert set(model.hf_device_map.values()) == set(range(torch.cuda.device_count()))
+            assert set(model.hf_device_map.values()) == set(
+                range(torch.cuda.device_count())
+            )
 
             model = prepare_model_for_kbit_training(model)
 
@@ -305,7 +290,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("Abirate/english_quotes")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -320,7 +307,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
                     logging_steps=1,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -480,7 +469,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
                 device_map="auto",
             )
 
-            assert set(model.hf_device_map.values()) == set(range(torch.cuda.device_count()))
+            assert set(model.hf_device_map.values()) == set(
+                range(torch.cuda.device_count())
+            )
 
             tokenizer = AutoTokenizer.from_pretrained(self.causal_lm_model_id)
             model = prepare_model_for_kbit_training(model)
@@ -604,7 +595,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
                 device_map="balanced",
             )
 
-            assert set(model.hf_device_map.values()) == set(range(torch.cuda.device_count()))
+            assert set(model.hf_device_map.values()) == set(
+                range(torch.cuda.device_count())
+            )
 
             tokenizer = AutoTokenizer.from_pretrained(self.seq2seq_model_id)
             model = prepare_model_for_kbit_training(model)
@@ -664,12 +657,28 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
             common_voice["train"] = load_dataset(dataset_name, split="train+validation")
 
             common_voice = common_voice.remove_columns(
-                ["accent", "age", "client_id", "down_votes", "gender", "locale", "path", "segment", "up_votes"]
+                [
+                    "accent",
+                    "age",
+                    "client_id",
+                    "down_votes",
+                    "gender",
+                    "locale",
+                    "path",
+                    "segment",
+                    "up_votes",
+                ]
             )
 
-            feature_extractor = WhisperFeatureExtractor.from_pretrained(self.audio_model_id)
-            tokenizer = WhisperTokenizer.from_pretrained(self.audio_model_id, language=language, task=task)
-            processor = WhisperProcessor.from_pretrained(self.audio_model_id, language=language, task=task)
+            feature_extractor = WhisperFeatureExtractor.from_pretrained(
+                self.audio_model_id
+            )
+            tokenizer = WhisperTokenizer.from_pretrained(
+                self.audio_model_id, language=language, task=task
+            )
+            processor = WhisperProcessor.from_pretrained(
+                self.audio_model_id, language=language, task=task
+            )
 
             common_voice = common_voice.cast_column("audio", Audio(sampling_rate=16000))
 
@@ -687,12 +696,16 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
                 return batch
 
             common_voice = common_voice.map(
-                prepare_dataset, remove_columns=common_voice.column_names["train"], num_proc=2
+                prepare_dataset,
+                remove_columns=common_voice.column_names["train"],
+                num_proc=2,
             )
             data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor)
 
             model = WhisperForConditionalGeneration.from_pretrained(
-                self.audio_model_id, quantization_config=BitsAndBytesConfig(load_in_8bit=True), device_map="auto"
+                self.audio_model_id,
+                quantization_config=BitsAndBytesConfig(load_in_8bit=True),
+                device_map="auto",
             )
 
             model.config.forced_decoder_ids = None
@@ -708,7 +721,11 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
             model.model.encoder.conv1.register_forward_hook(make_inputs_require_grad)
 
             config = LoraConfig(
-                r=32, lora_alpha=64, target_modules=["q_proj", "v_proj"], lora_dropout=0.05, bias="none"
+                r=32,
+                lora_alpha=64,
+                target_modules=["q_proj", "v_proj"],
+                lora_dropout=0.05,
+                bias="none",
             )
 
             model = get_peft_model(model, config)
@@ -886,7 +903,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
                 quantization_config=BitsAndBytesConfig(load_in_4bit=True),
             )
 
-            assert set(model.hf_device_map.values()) == set(range(torch.cuda.device_count()))
+            assert set(model.hf_device_map.values()) == set(
+                range(torch.cuda.device_count())
+            )
 
             model = prepare_model_for_kbit_training(model)
 
@@ -906,7 +925,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("Abirate/english_quotes")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -921,7 +942,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
                     logging_steps=1,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -1003,7 +1026,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
                 quantization_config=BitsAndBytesConfig(load_in_8bit=True),
             )
 
-            assert set(model.hf_device_map.values()) == set(range(torch.cuda.device_count()))
+            assert set(model.hf_device_map.values()) == set(
+                range(torch.cuda.device_count())
+            )
 
             model = prepare_model_for_kbit_training(model)
 
@@ -1023,7 +1048,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("Abirate/english_quotes")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -1038,7 +1065,9 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
                     logging_steps=1,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -1109,16 +1138,24 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
         # Therefore, intializing DoRA with bnb on CPU used to fail.
         model_id = "facebook/opt-125m"
         if kbit == "4bit":
-            bnb_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4")
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True, bnb_4bit_quant_type="nf4"
+            )
         elif kbit == "8bit":
             bnb_config = BitsAndBytesConfig(load_in_8bit=True)
         else:
             raise ValueError("Only 4bit and 8bit bnb allowed")
 
-        model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=bnb_config)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id, quantization_config=bnb_config
+        )
         model = model.cpu()  # ensure that we're on CPU
         # sanity check that all weights are on CPU
-        weights_not_cpu = [name for name, p in model.named_parameters() if p.device != torch.device("cpu")]
+        weights_not_cpu = [
+            name
+            for name, p in model.named_parameters()
+            if p.device != torch.device("cpu")
+        ]
         assert not weights_not_cpu
 
         lora_config = LoraConfig(use_dora=True)
@@ -1126,7 +1163,11 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
         # should not raise
         peft_model = get_peft_model(model, lora_config)
         # check that the weights are still on CPU
-        weights_not_cpu = [name for name, p in peft_model.named_parameters() if p.device != torch.device("cpu")]
+        weights_not_cpu = [
+            name
+            for name, p in peft_model.named_parameters()
+            if p.device != torch.device("cpu")
+        ]
         assert not weights_not_cpu
 
 
@@ -1188,7 +1229,9 @@ class PeftGPTQGPUTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("ybelkada/english_quotes_copy")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -1203,7 +1246,9 @@ class PeftGPTQGPUTests(unittest.TestCase):
                     logging_steps=1,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -1268,7 +1313,9 @@ class PeftGPTQGPUTests(unittest.TestCase):
                     logging_steps=1,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -1297,7 +1344,9 @@ class PeftGPTQGPUTests(unittest.TestCase):
                 quantization_config=self.quantization_config,
             )
 
-            assert set(model.hf_device_map.values()) == set(range(torch.cuda.device_count()))
+            assert set(model.hf_device_map.values()) == set(
+                range(torch.cuda.device_count())
+            )
 
             model = prepare_model_for_kbit_training(model)
 
@@ -1316,7 +1365,9 @@ class PeftGPTQGPUTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("Abirate/english_quotes")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -1331,7 +1382,9 @@ class PeftGPTQGPUTests(unittest.TestCase):
                     logging_steps=1,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -1401,27 +1454,41 @@ class OffloadSaveTests(unittest.TestCase):
         torch.manual_seed(0)
         model = AutoModelForCausalLM.from_pretrained(self.causal_lm_model_id)
         tokenizer = AutoTokenizer.from_pretrained(self.causal_lm_model_id)
-        memory_limits = {"cpu": "0.4GIB"}  # no "disk" for PeftModel.from_pretrained() compatibility
+        memory_limits = {
+            "cpu": "0.4GIB"
+        }  # no "disk" for PeftModel.from_pretrained() compatibility
 
         # offload around half of all transformer modules to the disk
         device_map = infer_auto_device_map(model, max_memory=memory_limits)
         assert "cpu" in device_map.values()
         assert "disk" in device_map.values()
 
-        config = LoraConfig(task_type="CAUSAL_LM", init_lora_weights=False, target_modules=["c_attn"])
+        config = LoraConfig(
+            task_type="CAUSAL_LM", init_lora_weights=False, target_modules=["c_attn"]
+        )
 
         model = get_peft_model(model, config)
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_pretrained(tmp_dir)
-            model = AutoModelForCausalLM.from_pretrained(self.causal_lm_model_id, device_map="cpu")
+            model = AutoModelForCausalLM.from_pretrained(
+                self.causal_lm_model_id, device_map="cpu"
+            )
             lora_model = PeftModel.from_pretrained(model, tmp_dir).eval()
-            input_tokens = tokenizer.encode("Four score and seven years ago", return_tensors="pt")
+            input_tokens = tokenizer.encode(
+                "Four score and seven years ago", return_tensors="pt"
+            )
             output = lora_model(input_tokens)[0]
 
             # load the model with device_map
-            offloaded_model = AutoModelForCausalLM.from_pretrained(self.causal_lm_model_id, device_map=device_map)
-            assert len({p.device for p in offloaded_model.parameters()}) == 2  # 'cpu' and 'meta'
-            offloaded_lora_model = PeftModel.from_pretrained(offloaded_model, tmp_dir, max_memory=memory_limits).eval()
+            offloaded_model = AutoModelForCausalLM.from_pretrained(
+                self.causal_lm_model_id, device_map=device_map
+            )
+            assert (
+                len({p.device for p in offloaded_model.parameters()}) == 2
+            )  # 'cpu' and 'meta'
+            offloaded_lora_model = PeftModel.from_pretrained(
+                offloaded_model, tmp_dir, max_memory=memory_limits
+            ).eval()
             offloaded_output = offloaded_lora_model(input_tokens)[0]
         assert torch.allclose(output, offloaded_output, atol=1e-5)
 
@@ -1433,25 +1500,34 @@ class OffloadSaveTests(unittest.TestCase):
         torch.manual_seed(0)
         model = AutoModelForCausalLM.from_pretrained(self.causal_lm_model_id)
         tokenizer = AutoTokenizer.from_pretrained(self.causal_lm_model_id)
-        memory_limits = {0: "0.2GIB", "cpu": "0.2GIB"}  # no "disk" for PeftModel.from_pretrained() compatibility
+        memory_limits = {
+            0: "0.2GIB",
+            "cpu": "0.2GIB",
+        }  # no "disk" for PeftModel.from_pretrained() compatibility
         # offloads around half of all transformer modules
         device_map = infer_auto_device_map(model, max_memory=memory_limits)
         assert 0 in device_map.values()
         assert "cpu" in device_map.values()
         assert "disk" in device_map.values()
 
-        config = LoraConfig(task_type="CAUSAL_LM", init_lora_weights=False, target_modules=["c_attn"])
+        config = LoraConfig(
+            task_type="CAUSAL_LM", init_lora_weights=False, target_modules=["c_attn"]
+        )
 
         model = get_peft_model(model, config)
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_pretrained(tmp_dir)
             # load the model with device_map
-            model = AutoModelForCausalLM.from_pretrained(self.causal_lm_model_id, device_map=device_map).eval()
+            model = AutoModelForCausalLM.from_pretrained(
+                self.causal_lm_model_id, device_map=device_map
+            ).eval()
             assert len({p.device for p in model.parameters()}) == 2
 
             model = PeftModel.from_pretrained(model, tmp_dir, max_memory=memory_limits)
 
-        input_tokens = tokenizer.encode("Four score and seven years ago", return_tensors="pt")
+        input_tokens = tokenizer.encode(
+            "Four score and seven years ago", return_tensors="pt"
+        )
         model.eval()
 
         # test peft model adapter merge
@@ -1485,11 +1561,17 @@ class TestPiSSA:
 
     def quantize_model(self, model, num_bits=4, device="cuda"):
         # Quantize the `weight.data` of the linear layer in the model to `num_bits` and store it with full precision.
-        quantizer = NFQuantizer(num_bits=num_bits, device=device, method="normal", block_size=64)
+        quantizer = NFQuantizer(
+            num_bits=num_bits, device=device, method="normal", block_size=64
+        )
         for name, module in model.named_modules():
             if isinstance(module, torch.nn.Linear) and "lm_head" not in name:
-                quantized_weight, max_abs, shape = quantizer.quantize_block(module.weight.data.to(device))
-                module.weight.data = quantizer.dequantize_block(quantized_weight, max_abs, shape)
+                quantized_weight, max_abs, shape = quantizer.quantize_block(
+                    module.weight.data.to(device)
+                )
+                module.weight.data = quantizer.dequantize_block(
+                    quantized_weight, max_abs, shape
+                )
         return model
 
     def nuclear_norm(self, base_model, quantized_model):
@@ -1498,7 +1580,11 @@ class TestPiSSA:
         for name, module in base_model.named_modules():
             if isinstance(module, torch.nn.Linear) and "lm_head" not in name:
                 quant_module = quantized_model.get_submodule(name)
-                error_list.append(torch.linalg.svdvals(module.weight.data - quant_module.weight.data).sum())
+                error_list.append(
+                    torch.linalg.svdvals(
+                        module.weight.data - quant_module.weight.data
+                    ).sum()
+                )
         return torch.Tensor(error_list).sum()
 
     def get_errors(
@@ -1513,13 +1599,23 @@ class TestPiSSA:
 
         cls = AutoModelForSeq2SeqLM if "t5" in str(model_id) else AutoModelForCausalLM
         base_model = cls.from_pretrained(model_id).eval().to(device)
-        task_type = TaskType.SEQ_2_SEQ_LM if base_model.config.is_encoder_decoder else TaskType.CAUSAL_LM
+        task_type = (
+            TaskType.SEQ_2_SEQ_LM
+            if base_model.config.is_encoder_decoder
+            else TaskType.CAUSAL_LM
+        )
 
         # logits from the normal quantized LoRA model
-        target_modules = "all-linear" if task_type != TaskType.SEQ_2_SEQ_LM else ["o", "k", "wi", "q", "v"]
+        target_modules = (
+            "all-linear"
+            if task_type != TaskType.SEQ_2_SEQ_LM
+            else ["o", "k", "wi", "q", "v"]
+        )
         lora_config = LoraConfig(task_type=task_type, target_modules=target_modules)
 
-        qlora_model = self.quantize_model(cls.from_pretrained(model_id).eval().to(device), bits, device)
+        qlora_model = self.quantize_model(
+            cls.from_pretrained(model_id).eval().to(device), bits, device
+        )
         qlora_model = get_peft_model(
             qlora_model,
             lora_config,
@@ -1552,7 +1648,9 @@ class TestPiSSA:
 
         # now load quantized model and apply PiSSA-initialized weights on top
         qpissa_model = self.quantize_model(
-            cls.from_pretrained(tmp_path / "residual_model").eval().to(device), bits, device
+            cls.from_pretrained(tmp_path / "residual_model").eval().to(device),
+            bits,
+            device,
         )
         qpissa_model = PeftModel.from_pretrained(qpissa_model, tmp_path / "pissa_model")
         qpissa_model = qpissa_model.merge_and_unload()
@@ -1591,7 +1689,9 @@ class TestPiSSA:
         self.get_errors(bits=8, device=device, model_id="t5-small", tmp_path=tmp_path)
 
     @require_bitsandbytes
-    def test_lora_pissa_conversion_same_output_after_loading_with_quantization(self, tmp_path):
+    def test_lora_pissa_conversion_same_output_after_loading_with_quantization(
+        self, tmp_path
+    ):
         # A copy of the test `test_lora_pissa_conversion_same_output_after_loading` in peft/tests/test_initialization.py,
         # that would fail if bitsandbytes quantization is used because Quant(W_res) + AB !=Quant(W) + \Delta(AB).
         import bitsandbytes as bnb
@@ -1629,51 +1729,76 @@ class TestPiSSA:
         base_model.load_state_dict(torch.load(tmp_path / "residual-model"))
         # sanity check: the base model weights were indeed changed
         tol = 1e-06
-        assert not torch.allclose(model.linear.weight, base_model.linear.weight, atol=tol, rtol=tol)
+        assert not torch.allclose(
+            model.linear.weight, base_model.linear.weight, atol=tol, rtol=tol
+        )
         # quantize the linear layer
-        linear4bit = bnb.nn.Linear4bit(base_model.linear.in_features, base_model.linear.out_features)
+        linear4bit = bnb.nn.Linear4bit(
+            base_model.linear.in_features, base_model.linear.out_features
+        )
         linear4bit.load_state_dict(base_model.linear.state_dict())
         linear4bit.to(0)
         base_model.linear = linear4bit
-        peft_model = PeftModel.from_pretrained(deepcopy(base_model), tmp_path / "init-model")
+        peft_model = PeftModel.from_pretrained(
+            deepcopy(base_model), tmp_path / "init-model"
+        )
         output_quantized_pissa = peft_model(data)[0]
         # sanity check
         tol = 1e-06
-        assert not torch.allclose(output_base, output_quantized_pissa, atol=tol, rtol=tol)
+        assert not torch.allclose(
+            output_base, output_quantized_pissa, atol=tol, rtol=tol
+        )
 
         # modify the weights, or else the adapter performs an identity transformation
         peft_model.base_model.linear.lora_B["default"].weight.data *= 2.0
         output_finetuned_pissa = peft_model(data)[0]
         # sanity check
         tol = 1e-06
-        assert not torch.allclose(output_quantized_pissa, output_finetuned_pissa, atol=tol, rtol=tol)
+        assert not torch.allclose(
+            output_quantized_pissa, output_finetuned_pissa, atol=tol, rtol=tol
+        )
 
         # save the model normally
         peft_model.save_pretrained(tmp_path / "pissa-model")
-        model_loaded = PeftModel.from_pretrained(deepcopy(base_model), tmp_path / "pissa-model")
+        model_loaded = PeftModel.from_pretrained(
+            deepcopy(base_model), tmp_path / "pissa-model"
+        )
         output_loaded = model_loaded(data)[0]
 
         assert torch.allclose(output_finetuned_pissa, output_loaded, atol=tol, rtol=tol)
         # sanity check: ranks should still be 8 as initially
         assert model_loaded.peft_config["default"].r == 8
-        assert model_loaded.base_model.model.linear.lora_A["default"].weight.shape[0] == 8
+        assert (
+            model_loaded.base_model.model.linear.lora_A["default"].weight.shape[0] == 8
+        )
 
         # save the model with conversion
         peft_model.save_pretrained(
-            tmp_path / "pissa-model-converted", path_initial_model_for_weight_conversion=tmp_path / "init-model"
+            tmp_path / "pissa-model-converted",
+            path_initial_model_for_weight_conversion=tmp_path / "init-model",
         )
-        model_converted = PeftModel.from_pretrained(deepcopy(model), tmp_path / "pissa-model-converted")
+        model_converted = PeftModel.from_pretrained(
+            deepcopy(model), tmp_path / "pissa-model-converted"
+        )
         output_converted = model_converted(data)[0]
 
         # rank should be double of what it was initially
         assert model_converted.peft_config["default"].r == 16
-        assert model_converted.base_model.model.linear.lora_A["default"].weight.shape[0] == 16
+        assert (
+            model_converted.base_model.model.linear.lora_A["default"].weight.shape[0]
+            == 16
+        )
         # base model weights should be the same as the initial model
         assert torch.allclose(
-            model.linear.weight, model_converted.base_model.model.linear.base_layer.weight, atol=tol, rtol=tol
+            model.linear.weight,
+            model_converted.base_model.model.linear.base_layer.weight,
+            atol=tol,
+            rtol=tol,
         )
         # This check is expected to fail when using bnb
-        assert not torch.allclose(output_finetuned_pissa, output_converted, atol=tol, rtol=tol)
+        assert not torch.allclose(
+            output_finetuned_pissa, output_converted, atol=tol, rtol=tol
+        )
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="test requires a GPU")
@@ -1690,11 +1815,17 @@ class TestOLoRA:
 
     def quantize_model(self, model, num_bits=4, device="cuda"):
         # Quantize the `weight.data` of the linear layer in the model to `num_bits` and store it with full precision.
-        quantizer = NFQuantizer(num_bits=num_bits, device=device, method="normal", block_size=64)
+        quantizer = NFQuantizer(
+            num_bits=num_bits, device=device, method="normal", block_size=64
+        )
         for name, module in model.named_modules():
             if isinstance(module, torch.nn.Linear) and "lm_head" not in name:
-                quantized_weight, max_abs, shape = quantizer.quantize_block(module.weight.data.to(device))
-                module.weight.data = quantizer.dequantize_block(quantized_weight, max_abs, shape)
+                quantized_weight, max_abs, shape = quantizer.quantize_block(
+                    module.weight.data.to(device)
+                )
+                module.weight.data = quantizer.dequantize_block(
+                    quantized_weight, max_abs, shape
+                )
         return model
 
     def nuclear_norm(self, base_model, quantized_model):
@@ -1703,7 +1834,11 @@ class TestOLoRA:
         for name, module in base_model.named_modules():
             if isinstance(module, torch.nn.Linear) and "lm_head" not in name:
                 quant_module = quantized_model.get_submodule(name)
-                error_list.append(torch.linalg.svdvals(module.weight.data - quant_module.weight.data).sum())
+                error_list.append(
+                    torch.linalg.svdvals(
+                        module.weight.data - quant_module.weight.data
+                    ).sum()
+                )
         return torch.Tensor(error_list).sum()
 
     def get_errors(
@@ -1718,13 +1853,23 @@ class TestOLoRA:
 
         cls = AutoModelForSeq2SeqLM if "t5" in str(model_id) else AutoModelForCausalLM
         base_model = cls.from_pretrained(model_id).eval().to(device)
-        task_type = TaskType.SEQ_2_SEQ_LM if base_model.config.is_encoder_decoder else TaskType.CAUSAL_LM
+        task_type = (
+            TaskType.SEQ_2_SEQ_LM
+            if base_model.config.is_encoder_decoder
+            else TaskType.CAUSAL_LM
+        )
 
         # logits from the normal quantized LoRA model
-        target_modules = "all-linear" if task_type != TaskType.SEQ_2_SEQ_LM else ["o", "k", "wi", "q", "v"]
+        target_modules = (
+            "all-linear"
+            if task_type != TaskType.SEQ_2_SEQ_LM
+            else ["o", "k", "wi", "q", "v"]
+        )
         lora_config = LoraConfig(task_type=task_type, target_modules=target_modules)
 
-        qlora_model = self.quantize_model(cls.from_pretrained(model_id).eval().to(device), bits, device)
+        qlora_model = self.quantize_model(
+            cls.from_pretrained(model_id).eval().to(device), bits, device
+        )
         qlora_model = get_peft_model(
             qlora_model,
             lora_config,
@@ -1757,7 +1902,9 @@ class TestOLoRA:
 
         # now load quantized model and apply OLoRA-initialized weights on top
         qolora_model = self.quantize_model(
-            cls.from_pretrained(tmp_path / "residual_model").eval().to(device), bits, device
+            cls.from_pretrained(tmp_path / "residual_model").eval().to(device),
+            bits,
+            device,
         )
         qolora_model = PeftModel.from_pretrained(qolora_model, tmp_path / "olora_model")
         qolora_model = qolora_model.merge_and_unload()
@@ -1806,13 +1953,17 @@ class TestOLoRA:
         else:
             raise ValueError("bits must be 4 or 8")
 
-        model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=bnb_config)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id, quantization_config=bnb_config
+        )
         model = prepare_model_for_kbit_training(model)
         config = LoraConfig(init_lora_weights="olora")
         model = get_peft_model(model, config)
 
         # check that the correct type is used for the weights
-        base_layer = model.base_model.model.model.decoder.layers[0].self_attn.v_proj.base_layer.weight
+        base_layer = model.base_model.model.model.decoder.layers[
+            0
+        ].self_attn.v_proj.base_layer.weight
         if bits == 4:
             assert isinstance(base_layer, bnb.nn.modules.Params4bit)
         else:
@@ -1869,7 +2020,11 @@ class TestLoftQ:
         # already somewhat dampened because of the softmax.
         torch.manual_seed(0)
         model = self.get_base_model(model_id, device)
-        task_type = TaskType.SEQ_2_SEQ_LM if model.config.is_encoder_decoder else TaskType.CAUSAL_LM
+        task_type = (
+            TaskType.SEQ_2_SEQ_LM
+            if model.config.is_encoder_decoder
+            else TaskType.CAUSAL_LM
+        )
         inputs = self.get_input(model_id, device)
         # the base logits are the reference, we try to match those as closely as possible
         logits_base = self.get_logits(model, inputs)
@@ -1879,11 +2034,19 @@ class TestLoftQ:
         torch.cuda.empty_cache()
 
         # logits from the normal quantized LoRA model
-        target_modules = "all-linear" if task_type != TaskType.SEQ_2_SEQ_LM else ["o", "k", "wi", "q", "v"]
-        lora_config = LoraConfig(task_type=task_type, use_dora=use_dora, target_modules=target_modules)
+        target_modules = (
+            "all-linear"
+            if task_type != TaskType.SEQ_2_SEQ_LM
+            else ["o", "k", "wi", "q", "v"]
+        )
+        lora_config = LoraConfig(
+            task_type=task_type, use_dora=use_dora, target_modules=target_modules
+        )
         kwargs = {}
         if bits == 4:
-            kwargs["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4")
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=True, bnb_4bit_quant_type="nf4"
+            )
         elif bits == 8:
             kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
         else:
@@ -1927,8 +2090,12 @@ class TestLoftQ:
         torch.cuda.empty_cache()
 
         # now load quantized model and apply LoftQ-initialized weights on top
-        base_model = self.get_base_model(tmp_path / "base_model", device=None, **kwargs, torch_dtype=torch.float32)
-        loftq_model = PeftModel.from_pretrained(base_model, tmp_path / "loftq_model", is_trainable=True)
+        base_model = self.get_base_model(
+            tmp_path / "base_model", device=None, **kwargs, torch_dtype=torch.float32
+        )
+        loftq_model = PeftModel.from_pretrained(
+            base_model, tmp_path / "loftq_model", is_trainable=True
+        )
 
         # TODO sanity check: model is quantized
 
@@ -1952,7 +2119,9 @@ class TestLoftQ:
         # quantization error is simply the error from quantization without LoRA, as LoRA is a no-op before training.
         # We still apply LoRA for the test for consistency.
 
-        mae_quantized, mse_quantized, mae_loftq, mse_loftq = self.get_errors(bits=4, device=device, tmp_path=tmp_path)
+        mae_quantized, mse_quantized, mae_loftq, mse_loftq = self.get_errors(
+            bits=4, device=device, tmp_path=tmp_path
+        )
         # first, sanity check that all errors are > 0.0
         assert mae_quantized > 0.0
         assert mse_quantized > 0.0
@@ -1983,7 +2152,9 @@ class TestLoftQ:
     @pytest.mark.parametrize("device", ["cuda", "cpu"])
     def test_bloomz_loftq_8bit(self, device, tmp_path):
         # Same test as test_bloomz_loftq_4bit but with 8 bits.
-        mae_quantized, mse_quantized, mae_loftq, mse_loftq = self.get_errors(bits=8, device=device, tmp_path=tmp_path)
+        mae_quantized, mse_quantized, mae_loftq, mse_loftq = self.get_errors(
+            bits=8, device=device, tmp_path=tmp_path
+        )
 
         # first, sanity check that all errors are > 0.0
         assert mae_quantized > 0.0
@@ -2103,8 +2274,12 @@ class TestLoftQ:
                 load_in_4bit=True,
                 bnb_4bit_use_double_quant=True,
             )
-            model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=bnb_config)
-            model = get_peft_model(model, LoraConfig(task_type="CAUSAL_LM", target_modules="all-linear"))
+            model = AutoModelForCausalLM.from_pretrained(
+                model_id, quantization_config=bnb_config
+            )
+            model = get_peft_model(
+                model, LoraConfig(task_type="CAUSAL_LM", target_modules="all-linear")
+            )
             logits_lora = model(**inputs).logits
 
             current_mse = float("inf")
@@ -2163,7 +2338,9 @@ class TestLoftQ:
             )
 
             # load the base model from local directory
-            model = AutoModelForCausalLM.from_pretrained(tmp_dir, quantization_config=bnb_config)
+            model = AutoModelForCausalLM.from_pretrained(
+                tmp_dir, quantization_config=bnb_config
+            )
             model = get_peft_model(model, LoraConfig())
 
             # passing the local path directly works
@@ -2171,7 +2348,9 @@ class TestLoftQ:
             del model
 
             # load the base model from local directory
-            model = AutoModelForCausalLM.from_pretrained(tmp_dir, quantization_config=bnb_config)
+            model = AutoModelForCausalLM.from_pretrained(
+                tmp_dir, quantization_config=bnb_config
+            )
             model = get_peft_model(model, LoraConfig())
 
             # when not passing, ensure that users are made aware of the `model_path` argument
@@ -2206,7 +2385,9 @@ class MixedPrecisionTests(unittest.TestCase):
         )
 
         data = load_dataset("ybelkada/english_quotes_copy")
-        self.data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+        self.data = data.map(
+            lambda samples: self.tokenizer(samples["quote"]), batched=True
+        )
 
     def tearDown(self):
         r"""
@@ -2237,9 +2418,13 @@ class MixedPrecisionTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     max_steps=3,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
-            with pytest.raises(ValueError, match="Attempting to unscale FP16 gradients."):
+            with pytest.raises(
+                ValueError, match="Attempting to unscale FP16 gradients."
+            ):
                 trainer.train()
 
     @pytest.mark.single_gpu_tests
@@ -2261,7 +2446,9 @@ class MixedPrecisionTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     max_steps=3,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             trainer.train()  # does not raise
 
@@ -2298,7 +2485,9 @@ class MixedPrecisionTests(unittest.TestCase):
                     max_steps=3,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             trainer.train()  # does not raise
 
@@ -2313,8 +2502,12 @@ class MixedPrecisionTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_pretrained(tmp_dir)
-            model = AutoModelForCausalLM.from_pretrained(self.causal_lm_model_id, torch_dtype=torch.float16)
-            model = PeftModel.from_pretrained(model, tmp_dir, autocast_adapter_dtype=False, is_trainable=True)
+            model = AutoModelForCausalLM.from_pretrained(
+                self.causal_lm_model_id, torch_dtype=torch.float16
+            )
+            model = PeftModel.from_pretrained(
+                model, tmp_dir, autocast_adapter_dtype=False, is_trainable=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -2324,9 +2517,13 @@ class MixedPrecisionTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     max_steps=3,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
-            with pytest.raises(ValueError, match="Attempting to unscale FP16 gradients."):
+            with pytest.raises(
+                ValueError, match="Attempting to unscale FP16 gradients."
+            ):
                 trainer.train()
 
     @pytest.mark.single_gpu_tests
@@ -2341,17 +2538,25 @@ class MixedPrecisionTests(unittest.TestCase):
         model = get_peft_model(model, self.config, autocast_adapter_dtype=False)
         # sanity check: this should have float16 adapter weights:
         assert (
-            model.base_model.model.model.decoder.layers[0].self_attn.v_proj.lora_A["default"].weight.dtype
+            model.base_model.model.model.decoder.layers[0]
+            .self_attn.v_proj.lora_A["default"]
+            .weight.dtype
             == torch.float16
         )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_pretrained(tmp_dir)
-            model = AutoModelForCausalLM.from_pretrained(self.causal_lm_model_id, torch_dtype=torch.float16)
-            model = PeftModel.from_pretrained(model, tmp_dir, autocast_adapter_dtype=True, is_trainable=True)
+            model = AutoModelForCausalLM.from_pretrained(
+                self.causal_lm_model_id, torch_dtype=torch.float16
+            )
+            model = PeftModel.from_pretrained(
+                model, tmp_dir, autocast_adapter_dtype=True, is_trainable=True
+            )
             # sanity check: this should NOT have float16 adapter weights:
             assert (
-                model.base_model.model.model.decoder.layers[0].self_attn.v_proj.lora_A["default"].weight.dtype
+                model.base_model.model.model.decoder.layers[0]
+                .self_attn.v_proj.lora_A["default"]
+                .weight.dtype
                 == torch.float32
             )
 
@@ -2363,7 +2568,9 @@ class MixedPrecisionTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     max_steps=3,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             trainer.train()  # does not raise
 
@@ -2381,32 +2588,42 @@ class MixedPrecisionTests(unittest.TestCase):
         model = get_peft_model(model, self.config, autocast_adapter_dtype=False)
         # sanity check: this should have float16 adapter weights:
         assert (
-            model.base_model.model.model.decoder.layers[0].self_attn.v_proj.lora_A["default"].weight.dtype
+            model.base_model.model.model.decoder.layers[0]
+            .self_attn.v_proj.lora_A["default"]
+            .weight.dtype
             == torch.float16
         )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_pretrained(tmp_dir)
-            model = AutoModelForCausalLM.from_pretrained(self.causal_lm_model_id, torch_dtype=torch.float16)
+            model = AutoModelForCausalLM.from_pretrained(
+                self.causal_lm_model_id, torch_dtype=torch.float16
+            )
             # the default adapter is now in float16
             model = get_peft_model(model, self.config, autocast_adapter_dtype=False)
             # sanity check: this should NOT have float16 adapter weights:
             assert (
-                model.base_model.model.model.decoder.layers[0].self_attn.v_proj.lora_A["default"].weight.dtype
+                model.base_model.model.model.decoder.layers[0]
+                .self_attn.v_proj.lora_A["default"]
+                .weight.dtype
                 == torch.float16
             )
 
             # now load the first adapter in float16 using the adapter name "loaded16"
             model.load_adapter(tmp_dir, "loaded16", autocast_adapter_dtype=False)
             assert (
-                model.base_model.model.model.decoder.layers[0].self_attn.v_proj.lora_A["loaded16"].weight.dtype
+                model.base_model.model.model.decoder.layers[0]
+                .self_attn.v_proj.lora_A["loaded16"]
+                .weight.dtype
                 == torch.float16
             )
 
             # now load the first adapter in float32 using the adapter name "loaded32"
             model.load_adapter(tmp_dir, "loaded32", autocast_adapter_dtype=True)
             assert (
-                model.base_model.model.model.decoder.layers[0].self_attn.v_proj.lora_A["loaded32"].weight.dtype
+                model.base_model.model.model.decoder.layers[0]
+                .self_attn.v_proj.lora_A["loaded32"]
+                .weight.dtype
                 == torch.float32
             )
 
@@ -2420,9 +2637,13 @@ class MixedPrecisionTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     max_steps=3,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
-            with pytest.raises(ValueError, match="Attempting to unscale FP16 gradients."):
+            with pytest.raises(
+                ValueError, match="Attempting to unscale FP16 gradients."
+            ):
                 trainer.train()
 
             # training the model with the adapter "loaded16", which is in float16, should also raise
@@ -2435,9 +2656,13 @@ class MixedPrecisionTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     max_steps=3,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
-            with pytest.raises(ValueError, match="Attempting to unscale FP16 gradients."):
+            with pytest.raises(
+                ValueError, match="Attempting to unscale FP16 gradients."
+            ):
                 trainer.train()
 
             # training the model with the adapter "loaded32", which is in float32, should not raise
@@ -2450,7 +2675,9 @@ class MixedPrecisionTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     max_steps=3,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             trainer.train()  # does not raise
 
@@ -2458,7 +2685,8 @@ class MixedPrecisionTests(unittest.TestCase):
 @require_torch_gpu
 @require_aqlm
 @unittest.skipUnless(
-    version.parse(importlib.metadata.version("transformers")) >= version.parse("4.38.0"),
+    version.parse(importlib.metadata.version("transformers"))
+    >= version.parse("4.38.0"),
     "test requires `transformers>=4.38.0`",
 )
 class PeftAqlmGPUTests(unittest.TestCase):
@@ -2467,7 +2695,9 @@ class PeftAqlmGPUTests(unittest.TestCase):
     """
 
     def setUp(self):
-        self.causal_lm_model_id = "BlackSamorez/TinyLlama-1_1B-Chat-v1_0-AQLM-2Bit-1x16-hf"
+        self.causal_lm_model_id = (
+            "BlackSamorez/TinyLlama-1_1B-Chat-v1_0-AQLM-2Bit-1x16-hf"
+        )
         self.tokenizer = AutoTokenizer.from_pretrained(self.causal_lm_model_id)
 
     def tearDown(self):
@@ -2511,7 +2741,9 @@ class PeftAqlmGPUTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("ybelkada/english_quotes_copy")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -2526,7 +2758,9 @@ class PeftAqlmGPUTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     fp16=True,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -2543,7 +2777,8 @@ class PeftAqlmGPUTests(unittest.TestCase):
 @require_torch_gpu
 @require_hqq
 @unittest.skipUnless(
-    version.parse(importlib.metadata.version("transformers")) >= version.parse("4.36.1"),
+    version.parse(importlib.metadata.version("transformers"))
+    >= version.parse("4.36.1"),
     "test requires `transformers>=4.36.1`",
 )
 class PeftHqqGPUTests(unittest.TestCase):
@@ -2599,7 +2834,9 @@ class PeftHqqGPUTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("ybelkada/english_quotes_copy")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -2614,7 +2851,9 @@ class PeftHqqGPUTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     fp16=True,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -2648,7 +2887,9 @@ class PeftHqqGPUTests(unittest.TestCase):
         )
         torch.manual_seed(0)
         model = get_peft_model(model, config).eval()
-        inputs = self.tokenizer("The meaning of unit tests is", return_tensors="pt").to(model.device)
+        inputs = self.tokenizer("The meaning of unit tests is", return_tensors="pt").to(
+            model.device
+        )
 
         with torch.inference_mode():
             output_normal = model(**inputs).logits
@@ -2672,18 +2913,24 @@ class PeftHqqGPUTests(unittest.TestCase):
             output_hqq = model(**inputs).logits
 
         # check that outputs of HQQ are highly correlated; there are outliers, so don't check for equality
-        cc_matrix = torch.corrcoef(torch.stack((output_normal.flatten(), output_hqq.flatten())))
+        cc_matrix = torch.corrcoef(
+            torch.stack((output_normal.flatten(), output_hqq.flatten()))
+        )
         assert cc_matrix.min() > 0.97
 
         # check that outputs are the same after merging
-        cc_matrix = torch.corrcoef(torch.stack((output_normal.flatten(), output_hqq.flatten())))
+        cc_matrix = torch.corrcoef(
+            torch.stack((output_normal.flatten(), output_hqq.flatten()))
+        )
         assert cc_matrix.min() > 0.97
 
         # check outputs are the same after unmerging
         model.unmerge_adapter()
         with torch.inference_mode():
             output_unmerged = model(**inputs).logits
-        cc_matrix = torch.corrcoef(torch.stack((output_normal.flatten(), output_unmerged.flatten())))
+        cc_matrix = torch.corrcoef(
+            torch.stack((output_normal.flatten(), output_unmerged.flatten()))
+        )
         assert cc_matrix.min() > 0.97
 
         # check that the results are the same after saving and loading
@@ -2712,14 +2959,18 @@ class PeftHqqGPUTests(unittest.TestCase):
         model = model.merge_and_unload()
         with torch.inference_mode():
             output_merged_unloaded = model(**inputs).logits
-        cc_matrix = torch.corrcoef(torch.stack((output_normal.flatten(), output_merged_unloaded.flatten())))
+        cc_matrix = torch.corrcoef(
+            torch.stack((output_normal.flatten(), output_merged_unloaded.flatten()))
+        )
         assert cc_matrix.min() > 0.97
 
 
 # TODO: unskip the tests once https://github.com/casper-hansen/AutoAWQ/issues/466 is fixed
 @require_torch_gpu
 @require_auto_awq
-@pytest.mark.skip(reason="Needs https://github.com/casper-hansen/AutoAWQ/issues/466 to be fixed first")
+@pytest.mark.skip(
+    reason="Needs https://github.com/casper-hansen/AutoAWQ/issues/466 to be fixed first"
+)
 class PeftAwqGPUTests(unittest.TestCase):
     r"""
     Awq + peft tests
@@ -2769,7 +3020,9 @@ class PeftAwqGPUTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("ybelkada/english_quotes_copy")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             # TODO: deal correctly with this case in transformers
             model._is_quantized_training_enabled = True
@@ -2787,7 +3040,9 @@ class PeftAwqGPUTests(unittest.TestCase):
                     output_dir=tmp_dir,
                     fp16=True,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -2814,7 +3069,9 @@ class PeftAwqGPUTests(unittest.TestCase):
                 device_map="auto",
             )
 
-            assert set(model.hf_device_map.values()) == set(range(torch.cuda.device_count()))
+            assert set(model.hf_device_map.values()) == set(
+                range(torch.cuda.device_count())
+            )
 
             model = prepare_model_for_kbit_training(model)
 
@@ -2833,7 +3090,9 @@ class PeftAwqGPUTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("Abirate/english_quotes")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -2847,7 +3106,9 @@ class PeftAwqGPUTests(unittest.TestCase):
                     logging_steps=1,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -2900,7 +3161,9 @@ class PeftEetqGPUTests(unittest.TestCase):
             quantization_config = EetqConfig("int8")
 
             model = AutoModelForCausalLM.from_pretrained(
-                self.causal_lm_model_id, device_map="auto", quantization_config=quantization_config
+                self.causal_lm_model_id,
+                device_map="auto",
+                quantization_config=quantization_config,
             )
 
             model = prepare_model_for_kbit_training(model)
@@ -2916,7 +3179,9 @@ class PeftEetqGPUTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("ybelkada/english_quotes_copy")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -2930,7 +3195,9 @@ class PeftEetqGPUTests(unittest.TestCase):
                     logging_steps=1,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -2961,7 +3228,9 @@ class PeftEetqGPUTests(unittest.TestCase):
                 quantization_config=quantization_config,
             )
 
-            assert set(model.hf_device_map.values()) == set(range(torch.cuda.device_count()))
+            assert set(model.hf_device_map.values()) == set(
+                range(torch.cuda.device_count())
+            )
 
             model = prepare_model_for_kbit_training(model)
 
@@ -2980,7 +3249,9 @@ class PeftEetqGPUTests(unittest.TestCase):
             model = get_peft_model(model, config)
 
             data = load_dataset("Abirate/english_quotes")
-            data = data.map(lambda samples: self.tokenizer(samples["quote"]), batched=True)
+            data = data.map(
+                lambda samples: self.tokenizer(samples["quote"]), batched=True
+            )
 
             trainer = Trainer(
                 model=model,
@@ -2994,7 +3265,9 @@ class PeftEetqGPUTests(unittest.TestCase):
                     logging_steps=1,
                     output_dir=tmp_dir,
                 ),
-                data_collator=DataCollatorForLanguageModeling(self.tokenizer, mlm=False),
+                data_collator=DataCollatorForLanguageModeling(
+                    self.tokenizer, mlm=False
+                ),
             )
             model.config.use_cache = False
             trainer.train()
@@ -3039,7 +3312,9 @@ class SimpleConv2DModel(torch.nn.Module):
 
         self.embedding_layer = torch.nn.Embedding(1000, 768)
         self.layer_norm = torch.nn.LayerNorm(768)
-        self.conv2d_transform = torch.nn.Conv2d(1, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        self.conv2d_transform = torch.nn.Conv2d(
+            1, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+        )
 
     def forward(self, input_ids):
         # Additional layers for your custom model
@@ -3159,7 +3434,12 @@ class TestFSDPWrap:
 
         init_process_group(world_size=1, rank=0)
         # check that this does not raise:
-        FSDP(model, auto_wrap_policy=fsdp_auto_wrap_policy(model), use_orig_params=False, sync_module_states=True)
+        FSDP(
+            model,
+            auto_wrap_policy=fsdp_auto_wrap_policy(model),
+            use_orig_params=False,
+            sync_module_states=True,
+        )
 
 
 class TestBOFT:
@@ -3172,7 +3452,9 @@ class TestBOFT:
     def test_boft_half_linear(self):
         # Check that we can use BoFT with model loaded in half precision
         layer = torch.nn.Linear(160, 160).cuda()
-        layer = boft.layer.Linear(layer, "layer", boft_n_butterfly_factor=2).to(dtype=torch.bfloat16)
+        layer = boft.layer.Linear(layer, "layer", boft_n_butterfly_factor=2).to(
+            dtype=torch.bfloat16
+        )
         x = torch.randn(160, 160, device="cuda", dtype=torch.bfloat16)
         layer(x)  # does not raise
 
@@ -3180,7 +3462,9 @@ class TestBOFT:
     @pytest.mark.single_gpu_tests
     def test_boft_half_conv(self):
         conv = torch.nn.Conv2d(1, 1, 4).cuda()
-        conv = boft.layer.Conv2d(conv, "conv", boft_n_butterfly_factor=2).to(dtype=torch.bfloat16)
+        conv = boft.layer.Conv2d(conv, "conv", boft_n_butterfly_factor=2).to(
+            dtype=torch.bfloat16
+        )
         x = torch.randn(1, 160, 160, device="cuda", dtype=torch.bfloat16)
         conv(x)  # does not raise
 
@@ -3201,7 +3485,9 @@ class TestPTuningReproducibility:
 
         torch.manual_seed(0)
         model = AutoModelForCausalLM.from_pretrained(model_id).to(self.device)
-        peft_config = PromptEncoderConfig(task_type="CAUSAL_LM", num_virtual_tokens=20, encoder_hidden_size=128)
+        peft_config = PromptEncoderConfig(
+            task_type="CAUSAL_LM", num_virtual_tokens=20, encoder_hidden_size=128
+        )
         model = get_peft_model(model, peft_config).eval()
 
         with torch.inference_mode():

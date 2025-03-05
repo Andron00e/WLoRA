@@ -57,7 +57,9 @@ class TestPoly(unittest.TestCase):
         assert len(text) > 10
         inputs = tokenizer(text, return_tensors="pt", padding=True)
         inputs["task_ids"] = torch.arange(len(text)) % n_tasks
-        inputs["labels"] = tokenizer((["A", "B"] * 100)[: len(text)], return_tensors="pt")["input_ids"]
+        inputs["labels"] = tokenizer(
+            (["A", "B"] * 100)[: len(text)], return_tensors="pt"
+        )["input_ids"]
 
         # simple training loop
         model.train()

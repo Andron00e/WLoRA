@@ -100,12 +100,19 @@ class WeightLoraModel(LycorisTuner):
         """
 
         # Regexp matching - Find key which matches current target_name in patterns provided
-        pattern_keys = list(chain(config.rank_pattern.keys(), config.alpha_pattern.keys()))
-        target_name_key = next(filter(lambda key: re.match(rf"(.*\.)?{key}$", current_key), pattern_keys), target_name)
+        pattern_keys = list(
+            chain(config.rank_pattern.keys(), config.alpha_pattern.keys())
+        )
+        target_name_key = next(
+            filter(lambda key: re.match(rf"(.*\.)?{key}$", current_key), pattern_keys),
+            target_name,
+        )
 
         kwargs = config.to_dict()
         kwargs["r"] = config.rank_pattern.get(target_name_key, config.r)
-        kwargs["lora_alpha"] = config.alpha_pattern.get(target_name_key, config.lora_alpha)
+        kwargs["lora_alpha"] = config.alpha_pattern.get(
+            target_name_key, config.lora_alpha
+        )
 
         if isinstance(target, WeightLoraLayer):
             target.update_layer(adapter_name, **kwargs)

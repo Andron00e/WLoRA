@@ -4,10 +4,10 @@ import torch
 import torch.nn as nn
 import transformers
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BitsAndBytesConfig)
 
 from peft import LoraConfig, get_peft_model
-
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 

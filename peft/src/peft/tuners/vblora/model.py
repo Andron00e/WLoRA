@@ -23,8 +23,10 @@ import torch.nn as nn
 from tqdm import tqdm
 from transformers.pytorch_utils import Conv1D
 
-from peft.tuners.tuners_utils import BaseTuner, BaseTunerLayer, check_target_module_exists
-from peft.utils import TRANSFORMERS_MODELS_TO_VBLORA_TARGET_MODULES_MAPPING, ModulesToSaveWrapper, _get_submodules
+from peft.tuners.tuners_utils import (BaseTuner, BaseTunerLayer,
+                                      check_target_module_exists)
+from peft.utils import (TRANSFORMERS_MODELS_TO_VBLORA_TARGET_MODULES_MAPPING,
+                        ModulesToSaveWrapper, _get_submodules)
 
 from .config import VBLoRAConfig
 from .layer import Linear, VBLoRALayer
@@ -74,10 +76,16 @@ class VBLoRAModel(BaseTuner):
 
     def _init_vblora_vector_bank(self, config: VBLoRAConfig, adapter_name: str) -> None:
         vblora_vector_bank = torch.zeros(config.num_vectors, config.vector_length)
-        torch.nn.init.uniform_(vblora_vector_bank, -config.init_vector_bank_bound, config.init_vector_bank_bound)
+        torch.nn.init.uniform_(
+            vblora_vector_bank,
+            -config.init_vector_bank_bound,
+            config.init_vector_bank_bound,
+        )
         self.vblora_vector_bank[adapter_name] = vblora_vector_bank
 
-    def _pre_injection_hook(self, model: nn.Module, config: VBLoRAConfig, adapter_name: str) -> None:
+    def _pre_injection_hook(
+        self, model: nn.Module, config: VBLoRAConfig, adapter_name: str
+    ) -> None:
         self.vblora_vector_bank = nn.ParameterDict({})
 
     def _check_new_adapter_config(self, config: VBLoRAConfig) -> None:
@@ -186,13 +194,21 @@ class VBLoRAModel(BaseTuner):
                         p.requires_grad = True
             elif bias == "vblora_only":
                 for m in model.modules():
-                    if isinstance(m, VBLoRALayer) and hasattr(m, "bias") and m.bias is not None:
+                    if (
+                        isinstance(m, VBLoRALayer)
+                        and hasattr(m, "bias")
+                        and m.bias is not None
+                    ):
                         m.bias.requires_grad = True
             else:
-                raise NotImplementedError(f"Requested bias: {bias}, is not implemented.")
+                raise NotImplementedError(
+                    f"Requested bias: {bias}, is not implemented."
+                )
 
     @staticmethod
-    def _create_new_module(vblora_config, vblora_vector_bank, adapter_name, target, **kwargs):
+    def _create_new_module(
+        vblora_config, vblora_vector_bank, adapter_name, target, **kwargs
+    ):
         if isinstance(target, BaseTunerLayer):
             target_base_layer = target.get_base_layer()
         else:
@@ -238,14 +254,19 @@ class VBLoRAModel(BaseTuner):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.model, name)
 
     def get_peft_config_as_dict(self, inference: bool = False):
         config_dict = {}
         for key, value in self.peft_config.items():
-            config = {k: v.value if isinstance(v, Enum) else v for k, v in asdict(value).items()}
+            config = {
+                k: v.value if isinstance(v, Enum) else v
+                for k, v in asdict(value).items()
+            }
             if inference:
                 config["inference_mode"] = True
         config_dict[key] = config
@@ -296,7 +317,9 @@ class VBLoRAModel(BaseTuner):
         for module in self.model.modules():
             if isinstance(module, VBLoRALayer):
                 if module.merged:
-                    warnings.warn("Adapter cannot be set when the model is merged. Unmerging the model first.")
+                    warnings.warn(
+                        "Adapter cannot be set when the model is merged. Unmerging the model first."
+                    )
                     module.unmerge()
                 module.set_adapter(adapter_name)
         self.active_adapter = adapter_name
@@ -304,10 +327,15 @@ class VBLoRAModel(BaseTuner):
     @staticmethod
     def _prepare_adapter_config(peft_config, model_config):
         if peft_config.target_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_VBLORA_TARGET_MODULES_MAPPING:
+            if (
+                model_config["model_type"]
+                not in TRANSFORMERS_MODELS_TO_VBLORA_TARGET_MODULES_MAPPING
+            ):
                 raise ValueError("Please specify `target_modules` in `peft_config`")
             peft_config.target_modules = set(
-                TRANSFORMERS_MODELS_TO_VBLORA_TARGET_MODULES_MAPPING[model_config["model_type"]]
+                TRANSFORMERS_MODELS_TO_VBLORA_TARGET_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
             )
         return peft_config
 
@@ -318,7 +346,9 @@ class VBLoRAModel(BaseTuner):
         safe_merge: bool = False,
         adapter_names: Optional[list[str]] = None,
     ):
-        key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if self.prefix not in key
+        ]
         desc = "Unloading " + ("and merging " if merge else "") + "model"
         for key in tqdm(key_list, disable=not progressbar, desc=desc):
             try:
@@ -330,10 +360,14 @@ class VBLoRAModel(BaseTuner):
                 if merge:
                     target.merge(safe_merge=safe_merge, adapter_names=adapter_names)
 
-                self._replace_module(parent, target_name, target.get_base_layer(), target)
+                self._replace_module(
+                    parent, target_name, target.get_base_layer(), target
+                )
             elif isinstance(target, ModulesToSaveWrapper):
                 # save any additional trainable modules part of `modules_to_save`
-                setattr(parent, target_name, target.modules_to_save[target.active_adapter])
+                setattr(
+                    parent, target_name, target.modules_to_save[target.active_adapter]
+                )
 
         return self.model
 
@@ -348,7 +382,9 @@ class VBLoRAModel(BaseTuner):
             raise ValueError(f"Adapter {adapter_name} does not exist")
         del self.peft_config[adapter_name]
 
-        key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if self.prefix not in key
+        ]
         new_adapter = None
         for key in key_list:
             _, target, _ = _get_submodules(self.model, key)
@@ -360,7 +396,10 @@ class VBLoRAModel(BaseTuner):
         self.active_adapter = new_adapter or []
 
     def merge_and_unload(
-        self, progressbar: bool = False, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+        self,
+        progressbar: bool = False,
+        safe_merge: bool = False,
+        adapter_names: Optional[list[str]] = None,
     ) -> torch.nn.Module:
         r"""
         This method merges the VBLoRA layers into the base model. This is needed if someone wants to use the base model
@@ -425,12 +464,19 @@ class VBLoRAModel(BaseTuner):
             else:
                 factor = 2
             topk_weight_params = (
-                logits_params / self.peft_config[adapter].num_vectors * (self.peft_config[adapter].topk - 1)
+                logits_params
+                / self.peft_config[adapter].num_vectors
+                * (self.peft_config[adapter].topk - 1)
             )
             topk_indices_params = (
-                logits_params / self.peft_config[adapter].num_vectors * self.peft_config[adapter].topk * factor
+                logits_params
+                / self.peft_config[adapter].num_vectors
+                * self.peft_config[adapter].topk
+                * factor
             )
-            vblora_params = int(vector_bank_params + topk_weight_params + topk_indices_params)
+            vblora_params = int(
+                vector_bank_params + topk_weight_params + topk_indices_params
+            )
         else:
             vblora_params = vector_bank_params + logits_params
         return vblora_params, other_params

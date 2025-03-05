@@ -21,8 +21,10 @@ from torch.nn.modules import Module
 from tqdm import tqdm
 
 from peft.config import PeftConfig
-from peft.tuners.tuners_utils import BaseTuner, _get_submodules, check_target_module_exists
-from peft.utils import TRANSFORMERS_MODELS_TO_LNTUNING_TARGET_MODULES_MAPPING, ModulesToSaveWrapper
+from peft.tuners.tuners_utils import (BaseTuner, _get_submodules,
+                                      check_target_module_exists)
+from peft.utils import (TRANSFORMERS_MODELS_TO_LNTUNING_TARGET_MODULES_MAPPING,
+                        ModulesToSaveWrapper)
 
 from .layer import LNTuningLayer
 
@@ -72,18 +74,27 @@ class LNTuningModel(BaseTuner):
         try:
             return super().__getattr__(name)  # defer to nn.Module's logic
         except AttributeError:
-            if name == "model":  # see #1892: prevent infinite recursion if class is not initialized
+            if (
+                name == "model"
+            ):  # see #1892: prevent infinite recursion if class is not initialized
                 raise
             return getattr(self.model, name)
 
     # TODO: here need to handle the modules_to_save rather than the target_modules
     @staticmethod
-    def _prepare_adapter_config(peft_config: PeftConfig, model_config: dict) -> PeftConfig:
+    def _prepare_adapter_config(
+        peft_config: PeftConfig, model_config: dict
+    ) -> PeftConfig:
         if peft_config.target_modules is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_LNTUNING_TARGET_MODULES_MAPPING:
+            if (
+                model_config["model_type"]
+                not in TRANSFORMERS_MODELS_TO_LNTUNING_TARGET_MODULES_MAPPING
+            ):
                 raise ValueError("Please specify `target_modules` in `peft_config`")
             peft_config.target_modules = set(
-                TRANSFORMERS_MODELS_TO_LNTUNING_TARGET_MODULES_MAPPING[model_config["model_type"]]
+                TRANSFORMERS_MODELS_TO_LNTUNING_TARGET_MODULES_MAPPING[
+                    model_config["model_type"]
+                ]
             )
         return peft_config
 
@@ -115,7 +126,9 @@ class LNTuningModel(BaseTuner):
             new_module.update_layer(target.base_layer, adapter_name)
         return new_module
 
-    def _replace_module(self, parent: Module, child_name: str, new_module: Module, child: Module) -> None:
+    def _replace_module(
+        self, parent: Module, child_name: str, new_module: Module, child: Module
+    ) -> None:
         setattr(parent, child_name, new_module)
 
         if hasattr(child, "base_layer"):
@@ -165,7 +178,9 @@ class LNTuningModel(BaseTuner):
         for module in self.model.modules():
             if isinstance(module, LNTuningLayer):
                 if module.merged:
-                    warnings.warn("Adapter cannot be set when the model is merged. Unmerging the model first.")
+                    warnings.warn(
+                        "Adapter cannot be set when the model is merged. Unmerging the model first."
+                    )
                     module.unmerge()
                 module.set_adapter(adapter_name)
         self.active_adapter = adapter_name
@@ -178,7 +193,9 @@ class LNTuningModel(BaseTuner):
         adapter_names: Optional[list[str]] = None,
     ):
         self._unloading_checks(adapter_names)
-        key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
+        key_list = [
+            key for key, _ in self.model.named_modules() if self.prefix not in key
+        ]
         desc = "Unloading adapters " + ("and merging " if merge else "") + "model"
 
         for key in tqdm(key_list, disable=not progressbar, desc=desc):
@@ -190,7 +207,9 @@ class LNTuningModel(BaseTuner):
             if hasattr(target, "base_layer"):
                 if merge:
                     target.merge(adapter_names)
-                self._replace_module(parent, target_name, target.get_base_layer(), target)
+                self._replace_module(
+                    parent, target_name, target.get_base_layer(), target
+                )
 
         return self.model
 
@@ -198,6 +217,9 @@ class LNTuningModel(BaseTuner):
         return self._unload_and_optionally_merge(merge=False)
 
     def merge_and_unload(
-        self, progressbar: bool = False, safe_merge: bool = False, adapter_names: Optional[list[str]] = None
+        self,
+        progressbar: bool = False,
+        safe_merge: bool = False,
+        adapter_names: Optional[list[str]] = None,
     ) -> nn.Module:
         return self._unload_and_optionally_merge(merge=True)

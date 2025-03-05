@@ -16,5 +16,4 @@ from .config import HRAConfig
 from .layer import HRAConv2d, HRALayer, HRALinear
 from .model import HRAModel
 
-
 __all__ = ["HRAConfig", "HRAModel", "HRAConv2d", "HRALinear", "HRALayer"]

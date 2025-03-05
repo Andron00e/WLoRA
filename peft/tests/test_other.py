@@ -15,7 +15,8 @@
 import pytest
 import torch
 from torch import nn
-from transformers import AutoModelForCausalLM, AutoModelForSequenceClassification
+from transformers import (AutoModelForCausalLM,
+                          AutoModelForSequenceClassification)
 
 from peft import LoraConfig, get_peft_model
 
@@ -61,7 +62,13 @@ class ModelWithParameterList(nn.Module):
 
 
 @pytest.mark.parametrize(
-    "cls", [ModelWithModuleDict, ModelWithModuleList, ModelWithParameterDict, ModelWithParameterList]
+    "cls",
+    [
+        ModelWithModuleDict,
+        ModelWithModuleList,
+        ModelWithParameterDict,
+        ModelWithParameterList,
+    ],
 )
 def test_modules_to_save_targets_module_dict_raises(cls):
     model = cls()
@@ -96,7 +103,9 @@ def test_modules_to_save_targets_tuner_layer_raises():
 def test_get_peft_model_revision_warning(tmp_path):
     base_model_id = "peft-internal-testing/tiny-random-BertModel"
     base_revision = "v2.0.0"
-    base_model = AutoModelForCausalLM.from_pretrained(base_model_id, revision=base_revision).eval()
+    base_model = AutoModelForCausalLM.from_pretrained(
+        base_model_id, revision=base_revision
+    ).eval()
     lora_config = LoraConfig(revision=base_revision)
 
     overwrite_revision = "main"

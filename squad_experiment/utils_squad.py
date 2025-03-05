@@ -1,24 +1,19 @@
+import collections
+import logging
 import os
+from typing import Optional, Tuple
+
 import numpy as np
 from datasets import load_dataset, load_metric
-import collections
-from typing import Optional, Tuple
 from tqdm.auto import tqdm
-import logging
-
-from transformers import (
-    EvalPrediction,
-    DataCollatorWithPadding,
-    default_data_collator,
-    AutoModelForQuestionAnswering,
-    AutoTokenizer,
-    AutoConfig,
-    PreTrainedTokenizerFast,
-    Trainer
-)
+from transformers import (AutoConfig, AutoModelForQuestionAnswering,
+                          AutoTokenizer, DataCollatorWithPadding,
+                          EvalPrediction, PreTrainedTokenizerFast, Trainer,
+                          default_data_collator)
 from transformers.trainer_utils import PredictionOutput
 
 logger = logging.getLogger(__name__)
+
 
 def postprocess_qa_predictions(
     examples,
@@ -65,11 +60,15 @@ def postprocess_qa_predictions(
             ``logging`` log level (e.g., ``logging.WARNING``)
     """
     if len(predictions) != 2:
-        raise ValueError("`predictions` should be a tuple with two elements (start_logits, end_logits).")
+        raise ValueError(
+            "`predictions` should be a tuple with two elements (start_logits, end_logits)."
+        )
     all_start_logits, all_end_logits = predictions
 
     if len(predictions[0]) != len(features):
-        raise ValueError(f"Got {len(predictions[0])} predictions and {len(features)} features.")
+        raise ValueError(
+            f"Got {len(predictions[0])} predictions and {len(features)} features."
+        )
 
     # Build a map example to its corresponding features.
     example_id_to_index = {k: i for i, k in enumerate(examples["id"])}
@@ -101,11 +100,16 @@ def postprocess_qa_predictions(
             offset_mapping = features[feature_index]["offset_mapping"]
             # Optional `token_is_max_context`, if provided we will remove answers that do not have the maximum context
             # available in the current feature.
-            token_is_max_context = features[feature_index].get("token_is_max_context", None)
+            token_is_max_context = features[feature_index].get(
+                "token_is_max_context", None
+            )
 
             # Update minimum null prediction.
             feature_null_score = start_logits[0] + end_logits[0]
-            if min_null_prediction is None or min_null_prediction["score"] > feature_null_score:
+            if (
+                min_null_prediction is None
+                or min_null_prediction["score"] > feature_null_score
+            ):
                 min_null_prediction = {
                     "offsets": (0, 0),
                     "score": feature_null_score,
@@ -114,7 +118,9 @@ def postprocess_qa_predictions(
                 }
 
             # Go through all possibilities for the `n_best_size` greater start and end logits.
-            start_indexes = np.argsort(start_logits)[-1 : -n_best_size - 1 : -1].tolist()
+            start_indexes = np.argsort(start_logits)[
+                -1 : -n_best_size - 1 : -1
+            ].tolist()
             end_indexes = np.argsort(end_logits)[-1 : -n_best_size - 1 : -1].tolist()
             for start_index in start_indexes:
                 for end_index in end_indexes:
@@ -130,16 +136,25 @@ def postprocess_qa_predictions(
                     ):
                         continue
                     # Don't consider answers with a length that is either < 0 or > max_answer_length.
-                    if end_index < start_index or end_index - start_index + 1 > max_answer_length:
+                    if (
+                        end_index < start_index
+                        or end_index - start_index + 1 > max_answer_length
+                    ):
                         continue
                     # Don't consider answer that don't have the maximum context available (if such information is
                     # provided).
-                    if token_is_max_context is not None and not token_is_max_context.get(str(start_index), False):
+                    if (
+                        token_is_max_context is not None
+                        and not token_is_max_context.get(str(start_index), False)
+                    ):
                         continue
 
                     prelim_predictions.append(
                         {
-                            "offsets": (offset_mapping[start_index][0], offset_mapping[end_index][1]),
+                            "offsets": (
+                                offset_mapping[start_index][0],
+                                offset_mapping[end_index][1],
+                            ),
                             "score": start_logits[start_index] + end_logits[end_index],
                             "start_logit": start_logits[start_index],
                             "end_logit": end_logits[end_index],
@@ -151,7 +166,9 @@ def postprocess_qa_predictions(
             null_score = min_null_prediction["score"]
 
         # Only keep the best `n_best_size` predictions.
-        predictions = sorted(prelim_predictions, key=lambda x: x["score"], reverse=True)[:n_best_size]
+        predictions = sorted(
+            prelim_predictions, key=lambda x: x["score"], reverse=True
+        )[:n_best_size]
 
         # Add back the minimum null prediction if it was removed because of its low score.
         if (
@@ -169,8 +186,12 @@ def postprocess_qa_predictions(
 
         # In the very rare edge case we have not a single non-null prediction, we create a fake prediction to avoid
         # failure.
-        if len(predictions) == 0 or (len(predictions) == 1 and predictions[0]["text"] == ""):
-            predictions.insert(0, {"text": "empty", "start_logit": 0.0, "end_logit": 0.0, "score": 0.0})
+        if len(predictions) == 0 or (
+            len(predictions) == 1 and predictions[0]["text"] == ""
+        ):
+            predictions.insert(
+                0, {"text": "empty", "start_logit": 0.0, "end_logit": 0.0, "score": 0.0}
+            )
 
         # Compute the softmax of all scores (we do it with numpy to stay independent from torch/tf in this file, using
         # the LogSumExp trick).
@@ -193,8 +214,14 @@ def postprocess_qa_predictions(
             best_non_null_pred = predictions[i]
 
             # Then we compare to the null prediction using the threshold.
-            score_diff = null_score - best_non_null_pred["start_logit"] - best_non_null_pred["end_logit"]
-            scores_diff_json[example["id"]] = float(score_diff)  # To be JSON-serializable.
+            score_diff = (
+                null_score
+                - best_non_null_pred["start_logit"]
+                - best_non_null_pred["end_logit"]
+            )
+            scores_diff_json[example["id"]] = float(
+                score_diff
+            )  # To be JSON-serializable.
             if score_diff > null_score_diff_threshold:
                 all_predictions[example["id"]] = ""
             else:
@@ -202,7 +229,14 @@ def postprocess_qa_predictions(
 
         # Make `predictions` JSON-serializable by casting np.float back to float.
         all_nbest_json[example["id"]] = [
-            {k: (float(v) if isinstance(v, (np.float16, np.float32, np.float64)) else v) for k, v in pred.items()}
+            {
+                k: (
+                    float(v)
+                    if isinstance(v, (np.float16, np.float32, np.float64))
+                    else v
+                )
+                for k, v in pred.items()
+            }
             for pred in predictions
         ]
 
@@ -212,16 +246,24 @@ def postprocess_qa_predictions(
             raise EnvironmentError(f"{output_dir} is not a directory.")
 
         prediction_file = os.path.join(
-            output_dir, "predictions.json" if prefix is None else f"{prefix}_predictions.json"
+            output_dir,
+            "predictions.json" if prefix is None else f"{prefix}_predictions.json",
         )
         nbest_file = os.path.join(
-            output_dir, "nbest_predictions.json" if prefix is None else f"{prefix}_nbest_predictions.json"
+            output_dir,
+            (
+                "nbest_predictions.json"
+                if prefix is None
+                else f"{prefix}_nbest_predictions.json"
+            ),
         )
         if version_2_with_negative:
             null_odds_file = os.path.join(
-                output_dir, "null_odds.json" if prefix is None else f"{prefix}_null_odds.json"
+                output_dir,
+                "null_odds.json" if prefix is None else f"{prefix}_null_odds.json",
             )
     return all_predictions
+
 
 def squad_preprocess(data_args, training_args, model_args):
     if data_args.dataset_name is not None:
@@ -251,7 +293,11 @@ def squad_preprocess(data_args, training_args, model_args):
             use_auth_token=True if model_args.use_auth_token else None,
         )
     config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+        (
+            model_args.config_name
+            if model_args.config_name
+            else model_args.model_name_or_path
+        ),
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
@@ -260,7 +306,11 @@ def squad_preprocess(data_args, training_args, model_args):
         masking_prob=model_args.masking_prob,
     )
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
+        (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else model_args.model_name_or_path
+        ),
         cache_dir=model_args.cache_dir,
         use_fast=True,
         revision=model_args.model_revision,
@@ -310,7 +360,9 @@ def squad_preprocess(data_args, training_args, model_args):
         # Some of the questions have lots of whitespace on the left, which is not useful and will make the
         # truncation of the context fail (the tokenized question will take a lots of space). So we remove that
         # left whitespace
-        examples[question_column_name] = [q.lstrip() for q in examples[question_column_name]]
+        examples[question_column_name] = [
+            q.lstrip() for q in examples[question_column_name]
+        ]
 
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
         # in one example possible giving several features when a context is long, each of those features having a
@@ -368,13 +420,19 @@ def squad_preprocess(data_args, training_args, model_args):
                     token_end_index -= 1
 
                 # Detect if the answer is out of the span (in which case this feature is labeled with the CLS index).
-                if not (offsets[token_start_index][0] <= start_char and offsets[token_end_index][1] >= end_char):
+                if not (
+                    offsets[token_start_index][0] <= start_char
+                    and offsets[token_end_index][1] >= end_char
+                ):
                     tokenized_examples["start_positions"].append(cls_index)
                     tokenized_examples["end_positions"].append(cls_index)
                 else:
                     # Otherwise move the token_start_index and token_end_index to the two ends of the answer.
                     # Note: we could go after the last offset if the answer is the last word (edge case).
-                    while token_start_index < len(offsets) and offsets[token_start_index][0] <= start_char:
+                    while (
+                        token_start_index < len(offsets)
+                        and offsets[token_start_index][0] <= start_char
+                    ):
                         token_start_index += 1
                     tokenized_examples["start_positions"].append(token_start_index - 1)
                     while offsets[token_end_index][1] >= end_char:
@@ -405,11 +463,14 @@ def squad_preprocess(data_args, training_args, model_args):
             # Number of samples might increase during Feature Creation, We select only specified max samples
             max_train_samples = min(len(train_dataset), data_args.max_train_samples)
             train_dataset = train_dataset.select(range(max_train_samples))
+
     def prepare_validation_features(examples):
         # Some of the questions have lots of whitespace on the left, which is not useful and will make the
         # truncation of the context fail (the tokenized question will take a lots of space). So we remove that
         # left whitespace
-        examples[question_column_name] = [q.lstrip() for q in examples[question_column_name]]
+        examples[question_column_name] = [
+            q.lstrip() for q in examples[question_column_name]
+        ]
 
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
         # in one example possible giving several features when a context is long, each of those features having a
@@ -461,7 +522,9 @@ def squad_preprocess(data_args, training_args, model_args):
             max_eval_samples = min(len(eval_examples), data_args.max_val_samples)
             eval_examples = eval_examples.select(range(max_eval_samples))
         # Validation Feature Creation
-        with training_args.main_process_first(desc="validation dataset map pre-processing"):
+        with training_args.main_process_first(
+            desc="validation dataset map pre-processing"
+        ):
             eval_dataset = eval_examples.map(
                 prepare_validation_features,
                 batched=True,
@@ -477,15 +540,20 @@ def squad_preprocess(data_args, training_args, model_args):
 
     test_dataset, test_examples = None, None
     if training_args.do_predict:
-        if "test" not in raw_datasets:
+        if "test" in raw_datasets:
+            test_examples = raw_datasets["test"]
+        elif "validation" in raw_datasets:
+            test_examples = raw_datasets["validation"]
+        else:
             raise ValueError("--do_predict requires a test dataset")
-        test_examples = raw_datasets["test"]
-        if data_args.max_predict_samples is not None:
+        if data_args.max_test_samples is not None:
             # We will select sample from whole data
-            predict_examples = predict_examples.select(range(data_args.max_predict_samples))
+            test_examples = test_examples.select(range(data_args.max_test_samples))
         # Predict Feature Creation
-        with training_args.main_process_first(desc="prediction dataset map pre-processing"):
-            test_dataset = predict_examples.map(
+        with training_args.main_process_first(
+            desc="prediction dataset map pre-processing"
+        ):
+            test_dataset = test_examples.map(
                 prepare_validation_features,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
@@ -493,10 +561,10 @@ def squad_preprocess(data_args, training_args, model_args):
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on prediction dataset",
             )
-        if data_args.max_predict_samples is not None:
+        if data_args.max_test_samples is not None:
             # During Feature creation dataset samples might increase, we will select required samples again
-            max_predict_samples = min(len(predict_dataset), data_args.max_predict_samples)
-            predict_dataset = predict_dataset.select(range(max_predict_samples))
+            max_test_samples = min(len(test_dataset), data_args.max_test_samples)
+            test_dataset = test_dataset.select(range(max_test_samples))
 
     # Data collator
     # We have already padded to max length if the corresponding flag is True, otherwise we need to pad in the data
@@ -504,7 +572,9 @@ def squad_preprocess(data_args, training_args, model_args):
     data_collator = (
         default_data_collator
         if data_args.pad_to_max_length
-        else DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None)
+        else DataCollatorWithPadding(
+            tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None
+        )
     )
 
     # Post-processing:
@@ -524,12 +594,17 @@ def squad_preprocess(data_args, training_args, model_args):
         # Format the result to the format the metric expects.
         if data_args.version_2_with_negative:
             formatted_predictions = [
-                {"id": k, "prediction_text": v, "no_answer_probability": 0.0} for k, v in predictions.items()
+                {"id": k, "prediction_text": v, "no_answer_probability": 0.0}
+                for k, v in predictions.items()
             ]
         else:
-            formatted_predictions = [{"id": k, "prediction_text": v} for k, v in predictions.items()]
+            formatted_predictions = [
+                {"id": k, "prediction_text": v} for k, v in predictions.items()
+            ]
 
-        references = [{"id": ex["id"], "answers": ex[answer_column_name]} for ex in examples]
+        references = [
+            {"id": ex["id"], "answers": ex[answer_column_name]} for ex in examples
+        ]
         return EvalPrediction(predictions=formatted_predictions, label_ids=references)
 
     metric = load_metric("squad_v2" if data_args.version_2_with_negative else "squad")
@@ -537,19 +612,19 @@ def squad_preprocess(data_args, training_args, model_args):
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
-
     return (
-        train_dataset, 
+        train_dataset,
         eval_dataset,
         eval_examples,
         test_dataset,
         test_examples,
-        data_collator, 
-        compute_metrics, 
-        model, 
+        data_collator,
+        compute_metrics,
+        model,
         tokenizer,
-        post_processing_function
+        post_processing_function,
     )
+
 
 class QuestionAnsweringTrainer(Trainer):
     def __init__(self, *args, eval_examples=None, post_process_function=None, **kwargs):
@@ -557,7 +632,13 @@ class QuestionAnsweringTrainer(Trainer):
         self.eval_examples = eval_examples
         self.post_process_function = post_process_function
 
-    def evaluate(self, eval_dataset=None, eval_examples=None, ignore_keys=None, metric_key_prefix: str = "eval"):
+    def evaluate(
+        self,
+        eval_dataset=None,
+        eval_examples=None,
+        ignore_keys=None,
+        metric_key_prefix: str = "eval",
+    ):
         eval_dataset = self.eval_dataset if eval_dataset is None else eval_dataset
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         eval_examples = self.eval_examples if eval_examples is None else eval_examples
@@ -565,7 +646,11 @@ class QuestionAnsweringTrainer(Trainer):
         # Temporarily disable metric computation, we will do it in the loop here.
         compute_metrics = self.compute_metrics
         self.compute_metrics = None
-        eval_loop = self.prediction_loop if self.args.use_legacy_prediction_loop else self.evaluation_loop
+        eval_loop = (
+            self.prediction_loop
+            if self.args.use_legacy_prediction_loop
+            else self.evaluation_loop
+        )
         try:
             output = eval_loop(
                 eval_dataloader,
@@ -579,7 +664,9 @@ class QuestionAnsweringTrainer(Trainer):
             self.compute_metrics = compute_metrics
 
         if self.post_process_function is not None and self.compute_metrics is not None:
-            eval_preds = self.post_process_function(eval_examples, eval_dataset, output.predictions)
+            eval_preds = self.post_process_function(
+                eval_examples, eval_dataset, output.predictions
+            )
             metrics = self.compute_metrics(eval_preds)
 
             # Prefix all keys with metric_key_prefix + '_'
@@ -591,16 +678,28 @@ class QuestionAnsweringTrainer(Trainer):
         else:
             metrics = {}
 
-        self.control = self.callback_handler.on_evaluate(self.args, self.state, self.control, metrics)
+        self.control = self.callback_handler.on_evaluate(
+            self.args, self.state, self.control, metrics
+        )
         return metrics
 
-    def predict(self, predict_dataset, predict_examples, ignore_keys=None, metric_key_prefix: str = "test"):
+    def predict(
+        self,
+        predict_dataset,
+        predict_examples,
+        ignore_keys=None,
+        metric_key_prefix: str = "test",
+    ):
         predict_dataloader = self.get_test_dataloader(predict_dataset)
 
         # Temporarily disable metric computation, we will do it in the loop here.
         compute_metrics = self.compute_metrics
         self.compute_metrics = None
-        eval_loop = self.prediction_loop if self.args.use_legacy_prediction_loop else self.evaluation_loop
+        eval_loop = (
+            self.prediction_loop
+            if self.args.use_legacy_prediction_loop
+            else self.evaluation_loop
+        )
         try:
             output = eval_loop(
                 predict_dataloader,
@@ -616,7 +715,9 @@ class QuestionAnsweringTrainer(Trainer):
         if self.post_process_function is None or self.compute_metrics is None:
             return output
 
-        predictions = self.post_process_function(predict_examples, predict_dataset, output.predictions, "predict")
+        predictions = self.post_process_function(
+            predict_examples, predict_dataset, output.predictions, "predict"
+        )
         metrics = self.compute_metrics(predictions)
 
         # Prefix all keys with metric_key_prefix + '_'
@@ -624,5 +725,8 @@ class QuestionAnsweringTrainer(Trainer):
             if not key.startswith(f"{metric_key_prefix}_"):
                 metrics[f"{metric_key_prefix}_{key}"] = metrics.pop(key)
 
-        return PredictionOutput(predictions=predictions.predictions, label_ids=predictions.label_ids, metrics=metrics)
-
+        return PredictionOutput(
+            predictions=predictions.predictions,
+            label_ids=predictions.label_ids,
+            metrics=metrics,
+        )

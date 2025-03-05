@@ -29,16 +29,15 @@ from diffusers.utils import check_min_version
 from safetensors.torch import load_file
 from tqdm import tqdm
 from transformers import AutoTokenizer
+
 from utils.args_loader import parse_args
 from utils.dataset import make_dataset
 from utils.light_controlnet import ControlNetModel
 from utils.pipeline_controlnet import LightControlNetPipeline
 from utils.unet_2d_condition import UNet2DConditionNewModel
 
-
 sys.path.append("../../src")
 from peft import PeftModel  # noqa: E402
-
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.10.0.dev0")
@@ -57,7 +56,9 @@ def main(args):
 
     # Load the tokenizer
     if args.tokenizer_name:
-        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, revision=args.revision, use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained(
+            args.tokenizer_name, revision=args.revision, use_fast=False
+        )
     elif args.pretrained_model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(
             args.pretrained_model_name_or_path,
@@ -73,7 +74,9 @@ def main(args):
 
     controlnet = ControlNetModel()
     controlnet.load_state_dict(load_file(controlnet_path))
-    unet = UNet2DConditionNewModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="unet")
+    unet = UNet2DConditionNewModel.from_pretrained(
+        args.pretrained_model_name_or_path, subfolder="unet"
+    )
     unet = PeftModel.from_pretrained(unet, unet_path, adapter_name=args.adapter_name)
 
     pipe = LightControlNetPipeline.from_pretrained(

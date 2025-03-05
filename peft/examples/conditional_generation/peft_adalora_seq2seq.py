@@ -4,10 +4,11 @@ import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, default_data_collator, get_linear_schedule_with_warmup
+from transformers import (AutoModelForSeq2SeqLM, AutoTokenizer,
+                          default_data_collator,
+                          get_linear_schedule_with_warmup)
 
 from peft import AdaLoraConfig, PeftConfig, PeftModel, TaskType, get_peft_model
-
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -65,8 +66,20 @@ tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
 def preprocess_function(examples):
     inputs = examples[text_column]
     targets = examples[label_column]
-    model_inputs = tokenizer(inputs, max_length=max_length, padding="max_length", truncation=True, return_tensors="pt")
-    labels = tokenizer(targets, max_length=3, padding="max_length", truncation=True, return_tensors="pt")
+    model_inputs = tokenizer(
+        inputs,
+        max_length=max_length,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt",
+    )
+    labels = tokenizer(
+        targets,
+        max_length=3,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt",
+    )
     labels = labels["input_ids"]
     labels[labels == tokenizer.pad_token_id] = -100
     model_inputs["labels"] = labels
@@ -86,9 +99,18 @@ train_dataset = processed_datasets["train"]
 eval_dataset = processed_datasets["validation"]
 
 train_dataloader = DataLoader(
-    train_dataset, shuffle=True, collate_fn=default_data_collator, batch_size=batch_size, pin_memory=True
+    train_dataset,
+    shuffle=True,
+    collate_fn=default_data_collator,
+    batch_size=batch_size,
+    pin_memory=True,
 )
-eval_dataloader = DataLoader(eval_dataset, collate_fn=default_data_collator, batch_size=batch_size, pin_memory=True)
+eval_dataloader = DataLoader(
+    eval_dataset,
+    collate_fn=default_data_collator,
+    batch_size=batch_size,
+    pin_memory=True,
+)
 
 
 # optimizer and lr scheduler
@@ -131,7 +153,10 @@ for epoch in range(num_epochs):
         loss = outputs.loss
         eval_loss += loss.detach().float()
         eval_preds.extend(
-            tokenizer.batch_decode(torch.argmax(outputs.logits, -1).detach().cpu().numpy(), skip_special_tokens=True)
+            tokenizer.batch_decode(
+                torch.argmax(outputs.logits, -1).detach().cpu().numpy(),
+                skip_special_tokens=True,
+            )
         )
 
     eval_epoch_loss = eval_loss / len(train_dataloader)
@@ -179,4 +204,6 @@ print(inputs)
 with torch.no_grad():
     outputs = model.generate(input_ids=inputs["input_ids"], max_new_tokens=10)
     print(outputs)
-    print(tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True))
+    print(
+        tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)
+    )

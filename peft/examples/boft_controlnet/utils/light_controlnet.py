@@ -18,16 +18,13 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from diffusers.configuration_utils import ConfigMixin, register_to_config
-from diffusers.models.attention_processor import AttentionProcessor, AttnProcessor
+from diffusers.models.attention_processor import (AttentionProcessor,
+                                                  AttnProcessor)
 from diffusers.models.modeling_utils import ModelMixin
-from diffusers.models.unet_2d_blocks import (
-    CrossAttnDownBlock2D,
-    DownBlock2D,
-)
+from diffusers.models.unet_2d_blocks import CrossAttnDownBlock2D, DownBlock2D
 from diffusers.utils import BaseOutput, logging
 from torch import nn
 from torch.nn import functional as F
-
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -56,18 +53,29 @@ class ControlNetConditioningEmbedding(nn.Module):
     ):
         super().__init__()
 
-        self.conv_in = nn.Conv2d(conditioning_channels, block_out_channels[0], kernel_size=3, padding=1)
+        self.conv_in = nn.Conv2d(
+            conditioning_channels, block_out_channels[0], kernel_size=3, padding=1
+        )
 
         self.blocks = nn.ModuleList([])
 
         for i in range(len(block_out_channels) - 1):
             channel_in = block_out_channels[i]
             channel_out = block_out_channels[i + 1]
-            self.blocks.append(nn.Conv2d(channel_in, channel_in, kernel_size=3, padding=1))
-            self.blocks.append(nn.Conv2d(channel_in, channel_out, kernel_size=3, padding=1, stride=2))
+            self.blocks.append(
+                nn.Conv2d(channel_in, channel_in, kernel_size=3, padding=1)
+            )
+            self.blocks.append(
+                nn.Conv2d(channel_in, channel_out, kernel_size=3, padding=1, stride=2)
+            )
 
         self.conv_out = zero_module(
-            nn.Conv2d(block_out_channels[-1], conditioning_embedding_channels, kernel_size=3, padding=1)
+            nn.Conv2d(
+                block_out_channels[-1],
+                conditioning_embedding_channels,
+                kernel_size=3,
+                padding=1,
+            )
         )
 
     def forward(self, conditioning):
@@ -113,7 +121,11 @@ class ControlNetModel(ModelMixin, ConfigMixin):
         # set recursively
         processors = {}
 
-        def fn_recursive_add_processors(name: str, module: torch.nn.Module, processors: Dict[str, AttentionProcessor]):
+        def fn_recursive_add_processors(
+            name: str,
+            module: torch.nn.Module,
+            processors: Dict[str, AttentionProcessor],
+        ):
             if hasattr(module, "set_processor"):
                 processors[f"{name}.processor"] = module.processor
 
@@ -128,7 +140,9 @@ class ControlNetModel(ModelMixin, ConfigMixin):
         return processors
 
     # Copied from diffusers.models.unet_2d_condition.UNet2DConditionModel.set_attn_processor
-    def set_attn_processor(self, processor: Union[AttentionProcessor, Dict[str, AttentionProcessor]]):
+    def set_attn_processor(
+        self, processor: Union[AttentionProcessor, Dict[str, AttentionProcessor]]
+    ):
         r"""
         Parameters:
             `processor (`dict` of `AttentionProcessor` or `AttentionProcessor`):
@@ -203,7 +217,11 @@ class ControlNetModel(ModelMixin, ConfigMixin):
             # make smallest slice possible
             slice_size = num_sliceable_layers * [1]
 
-        slice_size = num_sliceable_layers * [slice_size] if not isinstance(slice_size, list) else slice_size
+        slice_size = (
+            num_sliceable_layers * [slice_size]
+            if not isinstance(slice_size, list)
+            else slice_size
+        )
 
         if len(slice_size) != len(sliceable_head_dims):
             raise ValueError(
@@ -220,7 +238,9 @@ class ControlNetModel(ModelMixin, ConfigMixin):
         # Recursively walk through all the children.
         # Any children which exposes the set_attention_slice method
         # gets the message
-        def fn_recursive_set_attention_slice(module: torch.nn.Module, slice_size: List[int]):
+        def fn_recursive_set_attention_slice(
+            module: torch.nn.Module, slice_size: List[int]
+        ):
             if hasattr(module, "set_attention_slice"):
                 module.set_attention_slice(slice_size.pop())
 
@@ -248,7 +268,9 @@ class ControlNetModel(ModelMixin, ConfigMixin):
         elif channel_order == "bgr":
             controlnet_cond = torch.flip(controlnet_cond, dims=[1])
         else:
-            raise ValueError(f"unknown `controlnet_conditioning_channel_order`: {channel_order}")
+            raise ValueError(
+                f"unknown `controlnet_conditioning_channel_order`: {channel_order}"
+            )
 
         # 2. pre-process
 

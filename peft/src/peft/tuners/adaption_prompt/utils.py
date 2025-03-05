@@ -46,8 +46,12 @@ def llama_apply_rotary_pos_emb(q, cos, sin, position_ids):
     if len(cos.shape) == 4:
         gather_indices = position_ids[:, None, :, None]  # [bs, 1, seq_len, 1]
         gather_indices = gather_indices.repeat(1, cos.shape[1], 1, cos.shape[3])
-        cos = torch.gather(cos.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices)
-        sin = torch.gather(sin.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices)
+        cos = torch.gather(
+            cos.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices
+        )
+        sin = torch.gather(
+            sin.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices
+        )
     # In the new version, it is 2D so we fall back to the new implementation
     # https://github.com/huggingface/transformers/blame/eef7ea98c31a333bacdc7ae7a2372bde772be8e4/src/transformers/models/llama/modeling_llama.py#L222-L226
     else:
@@ -67,11 +71,17 @@ def llama_compute_query_states(model: nn.Module, **kwargs) -> torch.Tensor:
     position_ids = kwargs.get("position_ids")
     past_key_value = kwargs.get("past_key_value")
     bsz, q_len, _ = hidden_states.size()
-    query_states = model.q_proj(hidden_states).view(bsz, q_len, model.num_heads, model.head_dim).transpose(1, 2)
+    query_states = (
+        model.q_proj(hidden_states)
+        .view(bsz, q_len, model.num_heads, model.head_dim)
+        .transpose(1, 2)
+    )
 
     factor = model.k_proj.in_features // model.k_proj.out_features
     value_states = (
-        model.v_proj(hidden_states).view(bsz, q_len, (model.num_heads // factor), model.head_dim).transpose(1, 2)
+        model.v_proj(hidden_states)
+        .view(bsz, q_len, (model.num_heads // factor), model.head_dim)
+        .transpose(1, 2)
     )
 
     seq_len = q_len
@@ -94,10 +104,14 @@ def llama_compute_query_states(model: nn.Module, **kwargs) -> torch.Tensor:
     if position_ids is None:
         # Compute position_ids, since they are required for transformers > 4.37.2
         if past_key_value is None:
-            new_cache_positions = torch.arange(q_len, q_len + q_len, device=value_states.device)
+            new_cache_positions = torch.arange(
+                q_len, q_len + q_len, device=value_states.device
+            )
         else:
             past_seen_tokens = past_key_value.get_usable_length(q_len, model.layer_idx)
-            new_cache_positions = torch.arange(past_seen_tokens, past_seen_tokens + q_len, device=value_states.device)
+            new_cache_positions = torch.arange(
+                past_seen_tokens, past_seen_tokens + q_len, device=value_states.device
+            )
         position_ids = new_cache_positions.unsqueeze(0)
 
     rotary_emb_kwargs = {"position_ids": position_ids}

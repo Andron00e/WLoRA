@@ -9,8 +9,8 @@ import torch
 from diffusers import UNet2DConditionModel
 from transformers import CLIPTextModel
 
-from peft import LoraConfig, get_peft_model, get_peft_model_state_dict, set_peft_model_state_dict
-
+from peft import (LoraConfig, get_peft_model, get_peft_model_state_dict,
+                  set_peft_model_state_dict)
 
 # Default kohya_ss LoRA replacement modules
 # https://github.com/kohya-ss/sd-scripts/blob/c924c47f374ac1b6e33e71f82948eb1853e2243f/networks/lora.py#L661
@@ -32,8 +32,13 @@ class LoRAInfo:
 
     def peft_state_dict(self) -> Dict[str, torch.Tensor]:
         if self.lora_A is None or self.lora_B is None:
-            raise ValueError("At least one of lora_A or lora_B is None, they must both be provided")
-        return {f"{peft_key}.lora_A.weight": self.lora_A, f"{peft_key}.lora_B.weight": self.lora_A}
+            raise ValueError(
+                "At least one of lora_A or lora_B is None, they must both be provided"
+            )
+        return {
+            f"{peft_key}.lora_A.weight": self.lora_A,
+            f"{peft_key}.lora_B.weight": self.lora_A,
+        }
 
 
 def construct_peft_loraconfig(info: Dict[str, LoRAInfo]) -> LoraConfig:
@@ -86,19 +91,39 @@ def combine_peft_state_dict(info: Dict[str, LoRAInfo]) -> Dict[str, torch.Tensor
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--sd_checkpoint", default=None, type=str, required=True, help="SD checkpoint to use")
-
     parser.add_argument(
-        "--kohya_lora_path", default=None, type=str, required=True, help="Path to kohya_ss trained LoRA"
+        "--sd_checkpoint",
+        default=None,
+        type=str,
+        required=True,
+        help="SD checkpoint to use",
     )
 
-    parser.add_argument("--dump_path", default=None, type=str, required=True, help="Path to the output model.")
+    parser.add_argument(
+        "--kohya_lora_path",
+        default=None,
+        type=str,
+        required=True,
+        help="Path to kohya_ss trained LoRA",
+    )
 
-    parser.add_argument("--half", action="store_true", help="Save weights in half precision.")
+    parser.add_argument(
+        "--dump_path",
+        default=None,
+        type=str,
+        required=True,
+        help="Path to the output model.",
+    )
+
+    parser.add_argument(
+        "--half", action="store_true", help="Save weights in half precision."
+    )
     args = parser.parse_args()
 
     # Load all models that we need to add adapter to
-    text_encoder = CLIPTextModel.from_pretrained(args.sd_checkpoint, subfolder="text_encoder")
+    text_encoder = CLIPTextModel.from_pretrained(
+        args.sd_checkpoint, subfolder="text_encoder"
+    )
     unet = UNet2DConditionModel.from_pretrained(args.sd_checkpoint, subfolder="unet")
 
     # Construct possible mapping from kohya keys to peft keys
@@ -139,11 +164,15 @@ if __name__ == "__main__":
 
             # Find corresponding peft key
             if kohya_key not in models_keys:
-                raise ValueError(f"Cannot find corresponding key for diffusers/transformers model: {kohya_key}")
+                raise ValueError(
+                    f"Cannot find corresponding key for diffusers/transformers model: {kohya_key}"
+                )
             peft_key = models_keys[kohya_key]
 
             if peft_key not in lora_info[model_type]:
-                lora_info[model_type][peft_key] = LoRAInfo(kohya_key=kohya_key, peft_key=peft_key)
+                lora_info[model_type][peft_key] = LoRAInfo(
+                    kohya_key=kohya_key, peft_key=peft_key
+                )
 
             if kohya_type == "alpha":
                 lora_info[model_type][peft_key].alpha = f.get_tensor(key).item()

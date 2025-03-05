@@ -17,8 +17,8 @@ import unittest
 import torch
 from transformers import AutoModelForCausalLM
 
-from peft import AutoPeftModelForCausalLM, LoraConfig, PeftConfig, PeftModel, get_peft_model
-
+from peft import (AutoPeftModelForCausalLM, LoraConfig, PeftConfig, PeftModel,
+                  get_peft_model)
 
 PEFT_MODELS_TO_TEST = [("peft-internal-testing/test-lora-subfolder", "test")]
 
@@ -73,22 +73,32 @@ class TestBaseModelRevision:
         base_model_id = "peft-internal-testing/tiny-random-BertModel"
         revision = "v2.0.0"
 
-        base_model_revision = AutoModelForCausalLM.from_pretrained(base_model_id, revision=revision).eval()
-        peft_model_revision = get_peft_model(base_model_revision, lora_config, revision=revision)
+        base_model_revision = AutoModelForCausalLM.from_pretrained(
+            base_model_id, revision=revision
+        ).eval()
+        peft_model_revision = get_peft_model(
+            base_model_revision, lora_config, revision=revision
+        )
         output_revision = peft_model_revision(test_inputs).logits
 
         # sanity check: the model without revision should be different
-        base_model_no_revision = AutoModelForCausalLM.from_pretrained(base_model_id, revision="main").eval()
+        base_model_no_revision = AutoModelForCausalLM.from_pretrained(
+            base_model_id, revision="main"
+        ).eval()
         # we need a copy of the config because otherwise, we are changing in-place the `revision` of the previous config and model
         lora_config_no_revision = copy.deepcopy(lora_config)
         lora_config_no_revision.revision = "main"
-        peft_model_no_revision = get_peft_model(base_model_no_revision, lora_config_no_revision, revision="main")
+        peft_model_no_revision = get_peft_model(
+            base_model_no_revision, lora_config_no_revision, revision="main"
+        )
         output_no_revision = peft_model_no_revision(test_inputs).logits
         assert not torch.allclose(output_no_revision, output_revision)
 
         # check that if we save and load the model, the output corresponds to the one with revision
         peft_model_revision.save_pretrained(tmp_path / "peft_model_revision")
-        peft_model_revision_loaded = AutoPeftModelForCausalLM.from_pretrained(tmp_path / "peft_model_revision").eval()
+        peft_model_revision_loaded = AutoPeftModelForCausalLM.from_pretrained(
+            tmp_path / "peft_model_revision"
+        ).eval()
 
         assert peft_model_revision_loaded.peft_config["default"].revision == revision
 
@@ -104,7 +114,11 @@ class TestBaseModelRevision:
         peft_model_id = "peft-internal-testing/tiny-random-BertModel-lora"
         peft_model_revision = "v1.2.3"
 
-        peft_model = AutoPeftModelForCausalLM.from_pretrained(peft_model_id, revision=peft_model_revision).eval()
+        peft_model = AutoPeftModelForCausalLM.from_pretrained(
+            peft_model_id, revision=peft_model_revision
+        ).eval()
 
-        assert peft_model.peft_config["default"].base_model_name_or_path == base_model_id
+        assert (
+            peft_model.peft_config["default"].base_model_name_or_path == base_model_id
+        )
         assert peft_model.peft_config["default"].revision == base_model_revision

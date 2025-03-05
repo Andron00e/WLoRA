@@ -25,16 +25,8 @@ from parameterized import parameterized
 from torch import nn
 from transformers import AutoModelForCausalLM
 
-from peft import (
-    AdaLoraConfig,
-    LoHaConfig,
-    LoKrConfig,
-    LoraConfig,
-    OFTConfig,
-    PeftMixedModel,
-    PrefixTuningConfig,
-    get_peft_model,
-)
+from peft import (AdaLoraConfig, LoHaConfig, LoKrConfig, LoraConfig, OFTConfig,
+                  PeftMixedModel, PrefixTuningConfig, get_peft_model)
 from peft.tuners.tuners_utils import BaseTunerLayer
 from peft.utils import infer_device
 
@@ -68,18 +60,26 @@ def _param_name_func(testcase_func, param_num, params):
 class TestMixedAdapterTypes(unittest.TestCase):
     torch_device = infer_device()
 
-    def _get_model(self, model_cls, peft_config=None, adapter_name=None, seed=0, mixed=True):
-        torch.manual_seed(0)  # always use seed 0 for base model, seed for adapters may differ
+    def _get_model(
+        self, model_cls, peft_config=None, adapter_name=None, seed=0, mixed=True
+    ):
+        torch.manual_seed(
+            0
+        )  # always use seed 0 for base model, seed for adapters may differ
         base_model = model_cls().eval().to(self.torch_device)
         if peft_config is None:
             return base_model
 
         torch.manual_seed(seed)
         assert adapter_name is not None
-        peft_model = get_peft_model(base_model, peft_config, adapter_name=adapter_name, mixed=mixed)
+        peft_model = get_peft_model(
+            base_model, peft_config, adapter_name=adapter_name, mixed=mixed
+        )
         return peft_model.eval().to(self.torch_device)
 
-    def _check_mixed_outputs(self, model_cls, config0, config1, input, *, is_commutative):
+    def _check_mixed_outputs(
+        self, model_cls, config0, config1, input, *, is_commutative
+    ):
         # This test checks different combinations of adapter0, adapter1, or combinations of the two, and whether
         # outputs are the same/different, depending on context. If we pass is_commutative=True, it means that the order
         # of adapters does not matter, and we expect the same output regardless of the order in which adapters are
@@ -120,7 +120,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
         output_mixed_01 = peft_model_01(input)
 
         # check the number of tuner layer types
-        tuner_layers = [mod for mod in peft_model_01.modules() if isinstance(mod, BaseTunerLayer)]
+        tuner_layers = [
+            mod for mod in peft_model_01.modules() if isinstance(mod, BaseTunerLayer)
+        ]
         tuner_types = {type(tuner_layer) for tuner_layer in tuner_layers}
         if type(config0) is type(config1):
             assert len(tuner_types) == 1
@@ -135,7 +137,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
             delta0 = output_config0 - output_base
             delta1 = output_config1 - output_base
             delta_mixed_01 = output_mixed_01 - output_base
-            assert torch.allclose((delta0 + delta1), delta_mixed_01, atol=atol, rtol=rtol)
+            assert torch.allclose(
+                (delta0 + delta1), delta_mixed_01, atol=atol, rtol=rtol
+            )
 
         # adapter 1 + 0
         peft_model_10 = self._get_model(model_cls, config1, "adapter1", seed=seed1)
@@ -145,7 +149,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
         output_mixed_10 = peft_model_10(input)
 
         # check the number of tuner layer types
-        tuner_layers = [mod for mod in peft_model_10.modules() if isinstance(mod, BaseTunerLayer)]
+        tuner_layers = [
+            mod for mod in peft_model_10.modules() if isinstance(mod, BaseTunerLayer)
+        ]
         tuner_types = {type(tuner_layer) for tuner_layer in tuner_layers}
         if type(config0) is type(config1):
             assert len(tuner_types) == 1
@@ -157,14 +163,18 @@ class TestMixedAdapterTypes(unittest.TestCase):
         assert not torch.allclose(output_config0, output_mixed_10, atol=atol, rtol=rtol)
         assert not torch.allclose(output_config1, output_mixed_10, atol=atol, rtol=rtol)
         if is_commutative:
-            assert torch.allclose(output_mixed_01, output_mixed_10, atol=atol, rtol=rtol)
+            assert torch.allclose(
+                output_mixed_01, output_mixed_10, atol=atol, rtol=rtol
+            )
 
         # turn around the order of the adapters of the 0 + 1 mixed model, should behave like the 0 + 1 mixed model
         peft_model_10.set_adapter(["adapter0", "adapter1"])
         output_mixed_reversed = peft_model_10(input)
 
         # check the number of tuner layer types
-        tuner_layers = [mod for mod in peft_model_10.modules() if isinstance(mod, BaseTunerLayer)]
+        tuner_layers = [
+            mod for mod in peft_model_10.modules() if isinstance(mod, BaseTunerLayer)
+        ]
         tuner_types = {type(tuner_layer) for tuner_layer in tuner_layers}
         if type(config0) is type(config1):
             assert len(tuner_types) == 1
@@ -173,11 +183,19 @@ class TestMixedAdapterTypes(unittest.TestCase):
 
         assert peft_model_10.active_adapters == ["adapter0", "adapter1"]
         assert torch.isfinite(output_mixed_reversed).all()
-        assert not torch.allclose(output_mixed_reversed, output_config0, atol=atol, rtol=rtol)
-        assert not torch.allclose(output_mixed_reversed, output_config1, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_mixed_reversed, output_config0, atol=atol, rtol=rtol
+        )
+        assert not torch.allclose(
+            output_mixed_reversed, output_config1, atol=atol, rtol=rtol
+        )
         if is_commutative:
-            assert torch.allclose(output_mixed_reversed, output_mixed_01, atol=atol, rtol=rtol)
-            assert torch.allclose(output_mixed_reversed, output_mixed_10, atol=atol, rtol=rtol)
+            assert torch.allclose(
+                output_mixed_reversed, output_mixed_01, atol=atol, rtol=rtol
+            )
+            assert torch.allclose(
+                output_mixed_reversed, output_mixed_10, atol=atol, rtol=rtol
+            )
 
     def _check_merging(self, model_cls, config0, config1, input):
         # Ensure that when merging mixed adapters, the result is the same as when applying the adapters separately.
@@ -297,12 +315,16 @@ class TestMixedAdapterTypes(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dirname:
             # SAVING
             # adapter 0: note that we set mixed=False because mixed models don't support saving (yet)
-            peft_model_0 = self._get_model(model_cls, config0, "adapter0", seed=seed0, mixed=False)
+            peft_model_0 = self._get_model(
+                model_cls, config0, "adapter0", seed=seed0, mixed=False
+            )
             output_config0 = peft_model_0(input)
             peft_model_0.save_pretrained(os.path.join(tmp_dirname, "adapter0"))
 
             # adapter 1: note that we set mixed=False because mixed models don't support saving (yet)
-            peft_model_1 = self._get_model(model_cls, config1, "adapter1", seed=seed1, mixed=False)
+            peft_model_1 = self._get_model(
+                model_cls, config1, "adapter1", seed=seed1, mixed=False
+            )
             output_config1 = peft_model_1(input)
             peft_model_1.save_pretrained(os.path.join(tmp_dirname, "adapter1"))
 
@@ -329,65 +351,99 @@ class TestMixedAdapterTypes(unittest.TestCase):
             # weights are not just randomly initialized exactly to the same values as before.
             torch.manual_seed(123456)
             peft_model_loaded0 = PeftMixedModel.from_pretrained(
-                base_model, os.path.join(tmp_dirname, "adapter0", "adapter0"), "adapter0"
+                base_model,
+                os.path.join(tmp_dirname, "adapter0", "adapter0"),
+                "adapter0",
             )
             output_loaded0 = peft_model_loaded0(input)
             assert torch.allclose(output_config0, output_loaded0, atol=atol, rtol=rtol)
 
             # adapter 1
             base_model = self._get_model(model_cls)
-            torch.manual_seed(654321)  # setting a completely different seed here should not affect the result
+            torch.manual_seed(
+                654321
+            )  # setting a completely different seed here should not affect the result
             peft_model_loaded1 = PeftMixedModel.from_pretrained(
-                base_model, os.path.join(tmp_dirname, "adapter1", "adapter1"), "adapter1"
+                base_model,
+                os.path.join(tmp_dirname, "adapter1", "adapter1"),
+                "adapter1",
             )
             output_loaded1 = peft_model_loaded1(input)
             assert torch.allclose(output_config1, output_loaded1, atol=atol, rtol=rtol)
 
             # adapter 0 + 1
             base_model = self._get_model(model_cls)
-            torch.manual_seed(97531)  # setting a completely different seed here should not affect the result
+            torch.manual_seed(
+                97531
+            )  # setting a completely different seed here should not affect the result
             peft_model_loaded_01 = PeftMixedModel.from_pretrained(
-                base_model, os.path.join(tmp_dirname, "adapter0", "adapter0"), "adapter0"
+                base_model,
+                os.path.join(tmp_dirname, "adapter0", "adapter0"),
+                "adapter0",
             )
-            peft_model_loaded_01.load_adapter(os.path.join(tmp_dirname, "adapter1", "adapter1"), "adapter1")
+            peft_model_loaded_01.load_adapter(
+                os.path.join(tmp_dirname, "adapter1", "adapter1"), "adapter1"
+            )
             # at this point, "adapter0" should still be active
             assert peft_model_loaded_01.active_adapters == ["adapter0"]
             output_loaded01_0 = peft_model_loaded_01(input)
-            assert torch.allclose(output_config0, output_loaded01_0, atol=atol, rtol=rtol)
+            assert torch.allclose(
+                output_config0, output_loaded01_0, atol=atol, rtol=rtol
+            )
             # activate adapter1
             peft_model_loaded_01.set_adapter(["adapter1"])
             assert peft_model_loaded_01.active_adapters == ["adapter1"]
             output_loaded01_1 = peft_model_loaded_01(input)
-            assert torch.allclose(output_config1, output_loaded01_1, atol=atol, rtol=rtol)
+            assert torch.allclose(
+                output_config1, output_loaded01_1, atol=atol, rtol=rtol
+            )
             # activate both adapters
             peft_model_loaded_01.set_adapter(["adapter0", "adapter1"])
             output_loaded01 = peft_model_loaded_01(input)
-            assert torch.allclose(output_mixed_01, output_loaded01, atol=atol, rtol=rtol)
+            assert torch.allclose(
+                output_mixed_01, output_loaded01, atol=atol, rtol=rtol
+            )
 
             # adapter 1 + 0
             base_model = self._get_model(model_cls)
-            torch.manual_seed(445566)  # setting a completely different seed here should not affect the result
+            torch.manual_seed(
+                445566
+            )  # setting a completely different seed here should not affect the result
             peft_model_loaded_10 = PeftMixedModel.from_pretrained(
-                base_model, os.path.join(tmp_dirname, "adapter1", "adapter1"), "adapter1"
+                base_model,
+                os.path.join(tmp_dirname, "adapter1", "adapter1"),
+                "adapter1",
             )
-            peft_model_loaded_10.load_adapter(os.path.join(tmp_dirname, "adapter0", "adapter0"), "adapter0")
+            peft_model_loaded_10.load_adapter(
+                os.path.join(tmp_dirname, "adapter0", "adapter0"), "adapter0"
+            )
             # at this point, "adapter1" should still be active
             assert peft_model_loaded_10.active_adapters == ["adapter1"]
             output_loaded10_1 = peft_model_loaded_10(input)
-            assert torch.allclose(output_config1, output_loaded10_1, atol=atol, rtol=rtol)
+            assert torch.allclose(
+                output_config1, output_loaded10_1, atol=atol, rtol=rtol
+            )
             # activate adapter1
             peft_model_loaded_10.set_adapter(["adapter0"])
             assert peft_model_loaded_10.active_adapters == ["adapter0"]
             output_loaded10_0 = peft_model_loaded_10(input)
-            assert torch.allclose(output_config0, output_loaded10_0, atol=atol, rtol=rtol)
+            assert torch.allclose(
+                output_config0, output_loaded10_0, atol=atol, rtol=rtol
+            )
             # activate both adapters
             peft_model_loaded_10.set_adapter(["adapter1", "adapter0"])
             output_loaded10 = peft_model_loaded_10(input)
-            assert torch.allclose(output_mixed_10, output_loaded10, atol=atol, rtol=rtol)
+            assert torch.allclose(
+                output_mixed_10, output_loaded10, atol=atol, rtol=rtol
+            )
 
             if is_commutative:
-                assert torch.allclose(output_loaded01, output_loaded10, atol=atol, rtol=rtol)
-                assert torch.allclose(output_loaded10, output_mixed_01, atol=atol, rtol=rtol)
+                assert torch.allclose(
+                    output_loaded01, output_loaded10, atol=atol, rtol=rtol
+                )
+                assert torch.allclose(
+                    output_loaded10, output_mixed_01, atol=atol, rtol=rtol
+                )
 
     @parameterized.expand(
         itertools.combinations(
@@ -404,7 +460,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
     )
     def test_target_first_layer(self, config0, config1):
         input = torch.arange(90).reshape(9, 10).to(self.torch_device)
-        self._check_mixed_outputs(SimpleNet, config0, config1, input, is_commutative=False)
+        self._check_mixed_outputs(
+            SimpleNet, config0, config1, input, is_commutative=False
+        )
         self._check_merging(SimpleNet, config0, config1, input)
         self._check_unload(SimpleNet, config0, config1, input)
         self._check_disable(SimpleNet, config1, config0, input)
@@ -429,13 +487,19 @@ class TestMixedAdapterTypes(unittest.TestCase):
         # complex or if we target an earlier layer, because of the non-linearity would destroy the commutativity.
         input = torch.arange(90).reshape(9, 10).to(self.torch_device)
         # OFT is not commutative, as it's not a linear operation on the inputs
-        is_commutative = not any(isinstance(config, OFTConfig) for config in [config0, config1])
+        is_commutative = not any(
+            isinstance(config, OFTConfig) for config in [config0, config1]
+        )
 
-        self._check_mixed_outputs(SimpleNet, config0, config1, input, is_commutative=is_commutative)
+        self._check_mixed_outputs(
+            SimpleNet, config0, config1, input, is_commutative=is_commutative
+        )
         self._check_merging(SimpleNet, config0, config1, input)
         self._check_unload(SimpleNet, config0, config1, input)
         self._check_disable(SimpleNet, config1, config0, input)
-        self._check_loading(SimpleNet, config0, config1, input, is_commutative=is_commutative)
+        self._check_loading(
+            SimpleNet, config0, config1, input, is_commutative=is_commutative
+        )
 
     @parameterized.expand(
         itertools.combinations(
@@ -455,7 +519,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
 
         config0.target_modules = ["lin0"]
         config1.target_modules = ["lin1"]
-        self._check_mixed_outputs(SimpleNet, config0, config1, input, is_commutative=False)
+        self._check_mixed_outputs(
+            SimpleNet, config0, config1, input, is_commutative=False
+        )
         self._check_merging(SimpleNet, config0, config1, input)
         self._check_unload(SimpleNet, config0, config1, input)
         self._check_disable(SimpleNet, config0, config1, input)
@@ -464,7 +530,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
         # same, but switch target_modules around
         config0.target_modules = ["lin1"]
         config1.target_modules = ["lin0"]
-        self._check_mixed_outputs(SimpleNet, config1, config0, input, is_commutative=False)
+        self._check_mixed_outputs(
+            SimpleNet, config1, config0, input, is_commutative=False
+        )
         self._check_merging(SimpleNet, config1, config0, input)
         self._check_unload(SimpleNet, config1, config0, input)
         self._check_disable(SimpleNet, config1, config0, input)
@@ -498,9 +566,13 @@ class TestMixedAdapterTypes(unittest.TestCase):
     def test_target_last_layer_same_type(self, config0, config1):
         input = torch.arange(90).reshape(9, 10).to(self.torch_device)
         # OFT is not commutative, as it's not a linear operation on the inputs
-        is_commutative = not any(isinstance(config, OFTConfig) for config in [config0, config1])
+        is_commutative = not any(
+            isinstance(config, OFTConfig) for config in [config0, config1]
+        )
 
-        self._check_mixed_outputs(SimpleNet, config0, config1, input, is_commutative=is_commutative)
+        self._check_mixed_outputs(
+            SimpleNet, config0, config1, input, is_commutative=is_commutative
+        )
         self._check_merging(SimpleNet, config0, config1, input)
         self._check_unload(SimpleNet, config0, config1, input)
         self._check_disable(SimpleNet, config1, config0, input)
@@ -532,7 +604,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
     )
     def test_target_first_layer_same_type(self, config0, config1):
         input = torch.arange(90).reshape(9, 10).to(self.torch_device)
-        self._check_mixed_outputs(SimpleNet, config0, config1, input, is_commutative=False)
+        self._check_mixed_outputs(
+            SimpleNet, config0, config1, input, is_commutative=False
+        )
         self._check_merging(SimpleNet, config0, config1, input)
         self._check_unload(SimpleNet, config0, config1, input)
         self._check_disable(SimpleNet, config1, config0, input)
@@ -548,22 +622,30 @@ class TestMixedAdapterTypes(unittest.TestCase):
         input = torch.arange(90).reshape(9, 10).to(self.torch_device)
         output_base = model(input)
 
-        config0 = LoraConfig(r=4, lora_alpha=4, target_modules=["lin0", "lin1"], init_lora_weights=False)
+        config0 = LoraConfig(
+            r=4, lora_alpha=4, target_modules=["lin0", "lin1"], init_lora_weights=False
+        )
         peft_model = get_peft_model(model, config0, "adapter0", mixed=True)
 
         config1 = LoHaConfig(r=4, alpha=4, target_modules=["lin0"], init_weights=False)
         peft_model.add_adapter("adapter1", config1)
 
-        config2 = AdaLoraConfig(r=4, lora_alpha=4, target_modules=["lin1"], init_lora_weights=False)
+        config2 = AdaLoraConfig(
+            r=4, lora_alpha=4, target_modules=["lin1"], init_lora_weights=False
+        )
         peft_model.add_adapter("adapter2", config2)
 
-        config3 = LoKrConfig(r=4, alpha=4, target_modules=["lin0", "lin1"], init_weights=False)
+        config3 = LoKrConfig(
+            r=4, alpha=4, target_modules=["lin0", "lin1"], init_weights=False
+        )
         peft_model.add_adapter("adapter3", config3)
 
         config4 = OFTConfig(r=8, target_modules=["lin0", "lin1"], init_weights=False)
         peft_model.add_adapter("adapter4", config4)
 
-        peft_model.set_adapter(["adapter0", "adapter1", "adapter2", "adapter3", "adapter4"])
+        peft_model.set_adapter(
+            ["adapter0", "adapter1", "adapter2", "adapter3", "adapter4"]
+        )
         output_mixed = peft_model(input)
         assert torch.isfinite(output_base).all()
         assert not torch.allclose(output_base, output_mixed, atol=atol, rtol=rtol)
@@ -589,8 +671,12 @@ class TestMixedAdapterTypes(unittest.TestCase):
         assert torch.isfinite(output_13).all()
         assert not torch.allclose(output_mixed, output_13, atol=atol, rtol=rtol)
 
-        model_copy.set_adapter(["adapter0", "adapter1", "adapter2", "adapter3", "adapter4"])
-        model_merged_unloaded = model_copy.merge_and_unload(adapter_names=["adapter1", "adapter3"])
+        model_copy.set_adapter(
+            ["adapter0", "adapter1", "adapter2", "adapter3", "adapter4"]
+        )
+        model_merged_unloaded = model_copy.merge_and_unload(
+            adapter_names=["adapter1", "adapter3"]
+        )
         output_merged_13 = model_merged_unloaded(input)
         assert torch.isfinite(output_merged_13).all()
         assert torch.allclose(output_13, output_merged_13, atol=atol, rtol=rtol)
@@ -613,7 +699,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
 
         # create adapter0
         torch.manual_seed(0)
-        config0 = LoraConfig(r=4, lora_alpha=4, target_modules=["lin0", "lin1"], init_lora_weights=False)
+        config0 = LoraConfig(
+            r=4, lora_alpha=4, target_modules=["lin0", "lin1"], init_lora_weights=False
+        )
         peft_model = get_peft_model(model, config0, "adapter0", mixed=True)
         output_0 = peft_model(input)
         assert not torch.allclose(output_base, output_0, atol=atol, rtol=rtol)
@@ -633,7 +721,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
         output_deleted_1 = peft_model(input)
         assert torch.allclose(output_0, output_deleted_1, atol=atol, rtol=rtol)
 
-        msg = re.escape("Adapter(s) ['adapter1'] not found, available adapters: ['adapter0']")
+        msg = re.escape(
+            "Adapter(s) ['adapter1'] not found, available adapters: ['adapter0']"
+        )
         with pytest.raises(ValueError, match=msg):
             peft_model.set_adapter(["adapter0", "adapter1"])
 
@@ -657,7 +747,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
         assert not torch.allclose(output_deleted_0, output_base, atol=atol, rtol=rtol)
         assert not torch.allclose(output_deleted_0, output_01, atol=atol, rtol=rtol)
 
-        msg = re.escape("Adapter(s) ['adapter0'] not found, available adapters: ['adapter1']")
+        msg = re.escape(
+            "Adapter(s) ['adapter0'] not found, available adapters: ['adapter1']"
+        )
         with pytest.raises(ValueError, match=msg):
             peft_model.set_adapter(["adapter0", "adapter1"])
 
@@ -675,7 +767,10 @@ class TestMixedAdapterTypes(unittest.TestCase):
         # TODO: theoretically, we could allow this if it's the same target layer
         config1 = LoHaConfig(target_modules=["lin0"], modules_to_save=["lin1"])
         peft_model.add_adapter("adapter1", config1)
-        with pytest.raises(ValueError, match="Only one adapter can be set at a time for modules_to_save"):
+        with pytest.raises(
+            ValueError,
+            match="Only one adapter can be set at a time for modules_to_save",
+        ):
             peft_model.set_adapter(["adapter0", "adapter1"])
 
     def test_get_nb_trainable_parameters(self):
@@ -686,14 +781,18 @@ class TestMixedAdapterTypes(unittest.TestCase):
         peft_model = get_peft_model(model, config0, "adapter0", mixed=True)
         trainable_params0, all_param0 = peft_model.get_nb_trainable_parameters()
 
-        params_lora = sum(p.numel() for n, p in model.named_parameters() if "adapter0" in n)
+        params_lora = sum(
+            p.numel() for n, p in model.named_parameters() if "adapter0" in n
+        )
         assert trainable_params0 == params_lora
         assert all_param0 == (params_base + params_lora)
 
         config1 = LoHaConfig(target_modules=["lin1"])
         peft_model.add_adapter("adapter1", config1)
         peft_model.set_adapter(["adapter0", "adapter1"])
-        params_loha = sum(p.numel() for n, p in model.named_parameters() if "adapter1" in n)
+        params_loha = sum(
+            p.numel() for n, p in model.named_parameters() if "adapter1" in n
+        )
         trainable_params1, all_param1 = peft_model.get_nb_trainable_parameters()
         assert trainable_params1 == (params_lora + params_loha)
         assert all_param1 == ((params_base + params_lora) + params_loha)
@@ -701,11 +800,15 @@ class TestMixedAdapterTypes(unittest.TestCase):
         config2 = AdaLoraConfig(target_modules=["lin0", "lin1"])
         peft_model.add_adapter("adapter2", config2)
         peft_model.set_adapter(["adapter0", "adapter1", "adapter2"])
-        params_adalora = sum(p.numel() for n, p in model.named_parameters() if "adapter2" in n)
+        params_adalora = sum(
+            p.numel() for n, p in model.named_parameters() if "adapter2" in n
+        )
         trainable_params2, all_param2 = peft_model.get_nb_trainable_parameters()
         # remove 2 params because we need to exclude "ranknum" for AdaLora trainable params
         assert trainable_params2 == (((params_lora + params_loha) + params_adalora) - 2)
-        assert all_param2 == (((params_base + params_lora) + params_loha) + params_adalora)
+        assert all_param2 == (
+            ((params_base + params_lora) + params_loha) + params_adalora
+        )
 
     def test_incompatible_config_raises(self):
         model = SimpleNet().eval().to(self.torch_device)
@@ -722,7 +825,9 @@ class TestMixedAdapterTypes(unittest.TestCase):
         torch.manual_seed(0)
 
         model_id = "hf-internal-testing/tiny-random-OPTForCausalLM"
-        model = AutoModelForCausalLM.from_pretrained(model_id).eval().to(self.torch_device)
+        model = (
+            AutoModelForCausalLM.from_pretrained(model_id).eval().to(self.torch_device)
+        )
         input_ids = torch.tensor([[1, 1, 1], [1, 2, 1]]).to(self.torch_device)
         attention_mask = torch.tensor([[1, 1, 1], [1, 0, 1]]).to(self.torch_device)
         input_dict = {
@@ -739,7 +844,11 @@ class TestMixedAdapterTypes(unittest.TestCase):
         assert not torch.allclose(output_base, output0)
 
         torch.manual_seed(1)
-        config1 = LoHaConfig(task_type="CAUSAL_LM", target_modules=["q_proj", "v_proj"], init_weights=False)
+        config1 = LoHaConfig(
+            task_type="CAUSAL_LM",
+            target_modules=["q_proj", "v_proj"],
+            init_weights=False,
+        )
         peft_model.add_adapter("adapter1", config1)
         peft_model.set_adapter(["adapter0", "adapter1"])
         output1 = peft_model.generate(**input_dict)
@@ -755,7 +864,11 @@ class TestMixedAdapterTypes(unittest.TestCase):
         assert not torch.allclose(output1, output2)
 
         torch.manual_seed(3)
-        config3 = LoKrConfig(task_type="CAUSAL_LM", target_modules=["q_proj", "v_proj"], init_weights=False)
+        config3 = LoKrConfig(
+            task_type="CAUSAL_LM",
+            target_modules=["q_proj", "v_proj"],
+            init_weights=False,
+        )
         peft_model.add_adapter("adapter3", config3)
         peft_model.set_adapter(["adapter0", "adapter1", "adapter2", "adapter3"])
         output3 = peft_model.generate(**input_dict)
@@ -763,9 +876,15 @@ class TestMixedAdapterTypes(unittest.TestCase):
         assert not torch.allclose(output2, output3)
 
         torch.manual_seed(4)
-        config4 = OFTConfig(task_type="CAUSAL_LM", target_modules=["q_proj", "v_proj"], init_weights=False)
+        config4 = OFTConfig(
+            task_type="CAUSAL_LM",
+            target_modules=["q_proj", "v_proj"],
+            init_weights=False,
+        )
         peft_model.add_adapter("adapter4", config4)
-        peft_model.set_adapter(["adapter0", "adapter1", "adapter2", "adapter3", "adapter4"])
+        peft_model.set_adapter(
+            ["adapter0", "adapter1", "adapter2", "adapter3", "adapter4"]
+        )
         output4 = peft_model.generate(**input_dict)
         assert torch.isfinite(output4).all()
         assert not torch.allclose(output3, output4)
@@ -783,7 +902,11 @@ class TestMixedAdapterTypes(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             # save adapter0 (use normal PeftModel, because PeftMixedModel does not support saving)
             torch.manual_seed(0)
-            model = AutoModelForCausalLM.from_pretrained(model_id).eval().to(self.torch_device)
+            model = (
+                AutoModelForCausalLM.from_pretrained(model_id)
+                .eval()
+                .to(self.torch_device)
+            )
             torch.manual_seed(0)
             peft_model = get_peft_model(model, config0, "adapter0")
             output0_save = peft_model(**input_dict).logits
@@ -792,7 +915,11 @@ class TestMixedAdapterTypes(unittest.TestCase):
 
             # save adapter1
             torch.manual_seed(0)
-            model = AutoModelForCausalLM.from_pretrained(model_id).eval().to(self.torch_device)
+            model = (
+                AutoModelForCausalLM.from_pretrained(model_id)
+                .eval()
+                .to(self.torch_device)
+            )
             torch.manual_seed(1)
             peft_model = get_peft_model(model, config1, "adapter1")
             output1_save = peft_model(**input_dict).logits
@@ -800,13 +927,23 @@ class TestMixedAdapterTypes(unittest.TestCase):
             peft_model.save_pretrained(tmp_dir)
 
             # load adapter0 and adapter1
-            model = AutoModelForCausalLM.from_pretrained(model_id).eval().to(self.torch_device)
-            peft_model = PeftMixedModel.from_pretrained(model, os.path.join(tmp_dir, "adapter0"), "adapter0")
+            model = (
+                AutoModelForCausalLM.from_pretrained(model_id)
+                .eval()
+                .to(self.torch_device)
+            )
+            peft_model = PeftMixedModel.from_pretrained(
+                model, os.path.join(tmp_dir, "adapter0"), "adapter0"
+            )
             peft_model.load_adapter(os.path.join(tmp_dir, "adapter1"), "adapter1")
             peft_model.set_adapter(["adapter0", "adapter1"])
             output01_loaded = peft_model(**input_dict).logits
 
             atol, rtol = 1e-3, 1e-3
             assert torch.isfinite(output01_loaded).all()
-            assert not torch.allclose(output0_save, output01_loaded, atol=atol, rtol=rtol)
-            assert not torch.allclose(output1_save, output01_loaded, atol=atol, rtol=rtol)
+            assert not torch.allclose(
+                output0_save, output01_loaded, atol=atol, rtol=rtol
+            )
+            assert not torch.allclose(
+                output1_save, output01_loaded, atol=atol, rtol=rtol
+            )

@@ -21,7 +21,6 @@ import torch.nn as nn
 
 from .config import XLoraConfig
 
-
 Number = Union[builtins.int, builtins.float, builtins.bool]
 
 
@@ -61,7 +60,9 @@ class XLoraClassifier(nn.Module):
         self.n_layers = n_layers
         self.config = config
         self.log_scalings = []
-        self.softmax = TemperatureScaledSoftmax(temperature=self.config.softmax_temperature)
+        self.softmax = TemperatureScaledSoftmax(
+            temperature=self.config.softmax_temperature
+        )
         self.override_scaling_pass_value: Number = config.scaling_pass_value
 
         self.scalings_logging = False
@@ -72,30 +73,54 @@ class XLoraClassifier(nn.Module):
         layers = []
         if self.config.xlora_depth == 1:
             if config.layerwise_scalings:  # bias=False if we have just one layer
-                last = nn.Linear(config.hidden_size, n_classes * n_layers, bias=True).to(device).to(self.dtype)
+                last = (
+                    nn.Linear(config.hidden_size, n_classes * n_layers, bias=True)
+                    .to(device)
+                    .to(self.dtype)
+                )
             else:
-                last = nn.Linear(config.hidden_size, n_classes, bias=True).to(device).to(self.dtype)
+                last = (
+                    nn.Linear(config.hidden_size, n_classes, bias=True)
+                    .to(device)
+                    .to(self.dtype)
+                )
         else:
             if self.config.xlora_depth <= 0:
                 raise ValueError("X-LoRA depth must be strictly positive.")
 
-            layers.append(nn.Linear(config.hidden_size, config.xlora_size, bias=True).to(device).to(self.dtype))
+            layers.append(
+                nn.Linear(config.hidden_size, config.xlora_size, bias=True)
+                .to(device)
+                .to(self.dtype)
+            )
 
             layers.append(nn.ReLU())
             if add_dropout:
                 layers.append(nn.Dropout(p=config.xlora_dropout_p))
 
             for _ in range(config.xlora_depth - 2):
-                layers.append(nn.Linear(config.xlora_size, config.xlora_size, bias=True).to(device).to(self.dtype))
+                layers.append(
+                    nn.Linear(config.xlora_size, config.xlora_size, bias=True)
+                    .to(device)
+                    .to(self.dtype)
+                )
 
                 layers.append(nn.ReLU())
                 if add_dropout:
                     layers.append(nn.Dropout(p=config.xlora_dropout_p))
 
             if config.layerwise_scalings:
-                last = nn.Linear(config.xlora_size, n_classes * n_layers, bias=True).to(device).to(self.dtype)
+                last = (
+                    nn.Linear(config.xlora_size, n_classes * n_layers, bias=True)
+                    .to(device)
+                    .to(self.dtype)
+                )
             else:
-                last = nn.Linear(config.xlora_size, n_classes, bias=True).to(device).to(self.dtype)
+                last = (
+                    nn.Linear(config.xlora_size, n_classes, bias=True)
+                    .to(device)
+                    .to(self.dtype)
+                )
         self.layers = nn.Sequential(*layers, last)
 
     def make_dummy_scalings(

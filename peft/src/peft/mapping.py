@@ -23,52 +23,22 @@ from peft.tuners.xlora.model import XLoraModel
 
 from .config import PeftConfig
 from .mixed_model import PeftMixedModel
-from .peft_model import (
-    PeftModel,
-    PeftModelForCausalLM,
-    PeftModelForFeatureExtraction,
-    PeftModelForQuestionAnswering,
-    PeftModelForSeq2SeqLM,
-    PeftModelForSequenceClassification,
-    PeftModelForTokenClassification,
-)
-from .tuners import (
-    AdaLoraConfig,
-    AdaLoraModel,
-    AdaptionPromptConfig,
-    BOFTConfig,
-    BOFTModel,
-    FourierFTConfig,
-    FourierFTModel,
-    HRAConfig,
-    HRAModel,
-    IA3Config,
-    IA3Model,
-    LNTuningConfig,
-    LNTuningModel,
-    LoHaConfig,
-    LoHaModel,
-    LoKrConfig,
-    LoKrModel,
-    LoraConfig,
-    LoraModel,
-    MultitaskPromptTuningConfig,
-    OFTConfig,
-    OFTModel,
-    PolyConfig,
-    PolyModel,
-    PrefixTuningConfig,
-    PromptEncoderConfig,
-    PromptTuningConfig,
-    VBLoRAConfig,
-    VBLoRAModel,
-    VeraConfig,
-    VeraModel,
-    XLoraConfig,
-)
+from .peft_model import (PeftModel, PeftModelForCausalLM,
+                         PeftModelForFeatureExtraction,
+                         PeftModelForQuestionAnswering, PeftModelForSeq2SeqLM,
+                         PeftModelForSequenceClassification,
+                         PeftModelForTokenClassification)
+from .tuners import (AdaLoraConfig, AdaLoraModel, AdaptionPromptConfig,
+                     BOFTConfig, BOFTModel, FourierFTConfig, FourierFTModel,
+                     HRAConfig, HRAModel, IA3Config, IA3Model, LNTuningConfig,
+                     LNTuningModel, LoHaConfig, LoHaModel, LoKrConfig,
+                     LoKrModel, LoraConfig, LoraModel,
+                     MultitaskPromptTuningConfig, OFTConfig, OFTModel,
+                     PolyConfig, PolyModel, PrefixTuningConfig,
+                     PromptEncoderConfig, PromptTuningConfig, VBLoRAConfig,
+                     VBLoRAModel, VeraConfig, VeraModel, XLoraConfig)
 from .tuners.tuners_utils import BaseTuner
 from .utils import _prepare_prompt_learning_config
-
 
 if TYPE_CHECKING:
     from transformers import PreTrainedModel
@@ -185,13 +155,24 @@ def get_peft_model(
         # note: PeftMixedModel does not support autocast_adapter_dtype, so don't pass it
         return PeftMixedModel(model, peft_config, adapter_name=adapter_name)
 
-    if peft_config.task_type not in MODEL_TYPE_TO_PEFT_MODEL_MAPPING.keys() and not peft_config.is_prompt_learning:
-        return PeftModel(model, peft_config, adapter_name=adapter_name, autocast_adapter_dtype=autocast_adapter_dtype)
+    if (
+        peft_config.task_type not in MODEL_TYPE_TO_PEFT_MODEL_MAPPING.keys()
+        and not peft_config.is_prompt_learning
+    ):
+        return PeftModel(
+            model,
+            peft_config,
+            adapter_name=adapter_name,
+            autocast_adapter_dtype=autocast_adapter_dtype,
+        )
 
     if peft_config.is_prompt_learning:
         peft_config = _prepare_prompt_learning_config(peft_config, model_config)
     return MODEL_TYPE_TO_PEFT_MODEL_MAPPING[peft_config.task_type](
-        model, peft_config, adapter_name=adapter_name, autocast_adapter_dtype=autocast_adapter_dtype
+        model,
+        peft_config,
+        adapter_name=adapter_name,
+        autocast_adapter_dtype=autocast_adapter_dtype,
     )
 
 
@@ -212,7 +193,9 @@ def inject_adapter_in_model(
             The name of the adapter to be injected, if not provided, the default adapter name is used ("default").
     """
     if peft_config.is_prompt_learning or peft_config.is_adaption_prompt:
-        raise ValueError("`create_and_replace` does not support prompt learning and adaption prompt yet.")
+        raise ValueError(
+            "`create_and_replace` does not support prompt learning and adaption prompt yet."
+        )
 
     if peft_config.peft_type not in PEFT_TYPE_TO_TUNER_MAPPING.keys():
         raise ValueError(

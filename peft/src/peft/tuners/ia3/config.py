@@ -68,7 +68,9 @@ class IA3Config(PeftConfig):
     )
     fan_in_fan_out: bool = field(
         default=False,
-        metadata={"help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"},
+        metadata={
+            "help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"
+        },
     )
     modules_to_save: Optional[List[str]] = field(
         default=None,
@@ -86,13 +88,21 @@ class IA3Config(PeftConfig):
     def __post_init__(self):
         self.peft_type = PeftType.IA3
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )
         self.feedforward_modules = (
-            set(self.feedforward_modules) if isinstance(self.feedforward_modules, list) else self.feedforward_modules
+            set(self.feedforward_modules)
+            if isinstance(self.feedforward_modules, list)
+            else self.feedforward_modules
         )
 
         # check if feedforward_modules is a subset of target_modules. run the check only if both are sets
-        if isinstance(self.feedforward_modules, set) and isinstance(self.target_modules, set):
+        if isinstance(self.feedforward_modules, set) and isinstance(
+            self.target_modules, set
+        ):
             if not self.feedforward_modules.issubset(self.target_modules):
-                raise ValueError("`feedforward_modules` should be a subset of `target_modules`")
+                raise ValueError(
+                    "`feedforward_modules` should be a subset of `target_modules`"
+                )

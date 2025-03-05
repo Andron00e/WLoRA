@@ -98,12 +98,19 @@ class VeraConfig(PeftConfig):
         },
     )
     vera_dropout: float = field(default=0.0, metadata={"help": "Vera dropout"})
-    d_initial: float = field(default=0.1, metadata={"help": "Initial init value for d vector."})
+    d_initial: float = field(
+        default=0.1, metadata={"help": "Initial init value for d vector."}
+    )
     fan_in_fan_out: bool = field(
         default=False,
-        metadata={"help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"},
+        metadata={
+            "help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"
+        },
     )
-    bias: str = field(default="none", metadata={"help": "Bias type for Vera. Can be 'none', 'all' or 'vera_only'"})
+    bias: str = field(
+        default="none",
+        metadata={"help": "Bias type for Vera. Can be 'none', 'all' or 'vera_only'"},
+    )
     modules_to_save: Optional[List[str]] = field(
         default=None,
         metadata={
@@ -146,7 +153,9 @@ class VeraConfig(PeftConfig):
     def __post_init__(self):
         self.peft_type = PeftType.VERA
         self.target_modules = (
-            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+            set(self.target_modules)
+            if isinstance(self.target_modules, list)
+            else self.target_modules
         )
 
         if not self.save_projection:

@@ -21,31 +21,28 @@ import pytest
 import torch
 from datasets import load_dataset
 from safetensors.torch import load_file
-from transformers import (
-    AutoImageProcessor,
-    AutoModelForImageClassification,
-    AutoProcessor,
-    LlavaForConditionalGeneration,
-)
+from transformers import (AutoImageProcessor, AutoModelForImageClassification,
+                          AutoProcessor, LlavaForConditionalGeneration)
 
-from peft import (
-    HRAConfig,
-    LoHaConfig,
-    LoKrConfig,
-    LoraConfig,
-    OFTConfig,
-    PeftModel,
-    PrefixTuningConfig,
-    get_peft_model,
-)
-
+from peft import (HRAConfig, LoHaConfig, LoKrConfig, LoraConfig, OFTConfig,
+                  PeftModel, PrefixTuningConfig, get_peft_model)
 
 CONFIGS = {
-    "lora": LoraConfig(target_modules=["convolution"], modules_to_save=["classifier", "normalization"]),
-    "loha": LoHaConfig(target_modules=["convolution"], modules_to_save=["classifier", "normalization"]),
-    "lokr": LoKrConfig(target_modules=["convolution"], modules_to_save=["classifier", "normalization"]),
-    "oft": OFTConfig(target_modules=["convolution"], modules_to_save=["classifier", "normalization"]),
-    "hra": HRAConfig(target_modules=["convolution"], modules_to_save=["classifier", "normalization"]),
+    "lora": LoraConfig(
+        target_modules=["convolution"], modules_to_save=["classifier", "normalization"]
+    ),
+    "loha": LoHaConfig(
+        target_modules=["convolution"], modules_to_save=["classifier", "normalization"]
+    ),
+    "lokr": LoKrConfig(
+        target_modules=["convolution"], modules_to_save=["classifier", "normalization"]
+    ),
+    "oft": OFTConfig(
+        target_modules=["convolution"], modules_to_save=["classifier", "normalization"]
+    ),
+    "hra": HRAConfig(
+        target_modules=["convolution"], modules_to_save=["classifier", "normalization"]
+    ),
     # TODO: cannot use BOFT because some convolutional kernel dimensions are even (64) and others odd (147). There is no
     # common denominator for the boft_block_size except 1, but using 1 results in an error in the fbd_cuda kernel:
     # > Error in forward_fast_block_diag_cuda_kernel: an illegal memory access was encountered
@@ -133,7 +130,9 @@ class TestResnet:
         assert torch.isfinite(output_after.logits).all()
         atol, rtol = 1e-4, 1e-4
         # sanity check: model was updated
-        assert not torch.allclose(output_before.logits, output_after.logits, atol=atol, rtol=rtol)
+        assert not torch.allclose(
+            output_before.logits, output_after.logits, atol=atol, rtol=rtol
+        )
 
         # check saving the model and loading it
         model.save_pretrained(tmp_path)
@@ -144,12 +143,18 @@ class TestResnet:
         model = PeftModel.from_pretrained(model, tmp_path).eval()
         with torch.inference_mode():
             output_loaded = model(**data)
-        assert torch.allclose(output_after.logits, output_loaded.logits, atol=atol, rtol=rtol)
+        assert torch.allclose(
+            output_after.logits, output_loaded.logits, atol=atol, rtol=rtol
+        )
 
         # ensure that the checkpoint file contains the buffers
-        model_running_mean = len([k for k in model.state_dict().keys() if "running_mean" in k])
+        model_running_mean = len(
+            [k for k in model.state_dict().keys() if "running_mean" in k]
+        )
         state_dict = load_file(tmp_path / "adapter_model.safetensors")
-        checkpoint_running_mean = len([k for k in state_dict.keys() if "running_mean" in k])
+        checkpoint_running_mean = len(
+            [k for k in state_dict.keys() if "running_mean" in k]
+        )
         # note that the model has twice as many "running_mean", as there is one copy per ModulesToSaveWrapper, we need
         # to multiply by 2 to get the same number
         assert model_running_mean == checkpoint_running_mean * 2

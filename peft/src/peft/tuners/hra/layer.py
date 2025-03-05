@@ -41,9 +41,15 @@ class HRALayer(BaseTunerLayer):
 
         base_layer = self.get_base_layer()
         if isinstance(base_layer, nn.Linear):
-            self.in_features, self.out_features = base_layer.in_features, base_layer.out_features
+            self.in_features, self.out_features = (
+                base_layer.in_features,
+                base_layer.out_features,
+            )
         elif isinstance(base_layer, nn.Conv2d):
-            self.in_features, self.out_features = base_layer.in_channels, base_layer.out_channels
+            self.in_features, self.out_features = (
+                base_layer.in_channels,
+                base_layer.out_channels,
+            )
         else:
             raise ValueError(f"Unsupported layer type {type(base_layer)}")
 
@@ -64,7 +70,9 @@ class HRALayer(BaseTunerLayer):
             apply_GS (`bool`): Whether to apply Gram-Schmidt orthogonalization or not.
         """
         if r <= 0:
-            raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
+            raise ValueError(
+                f"`r` should be a positive integer value but the value passed is {r}"
+            )
 
         self.hra_r[adapter_name] = r
         self.hra_apply_GS[adapter_name] = apply_GS
@@ -72,14 +80,23 @@ class HRALayer(BaseTunerLayer):
         # Determine shape of HRA weights
         base_layer = self.get_base_layer()
         if isinstance(base_layer, nn.Linear):
-            self.hra_u[adapter_name] = nn.Parameter(torch.empty(self.in_features, r), requires_grad=True)
+            self.hra_u[adapter_name] = nn.Parameter(
+                torch.empty(self.in_features, r), requires_grad=True
+            )
         elif isinstance(base_layer, nn.Conv2d):
             self.hra_u[adapter_name] = nn.Parameter(
-                torch.empty(self.in_features * base_layer.kernel_size[0] * base_layer.kernel_size[0], r),
+                torch.empty(
+                    self.in_features
+                    * base_layer.kernel_size[0]
+                    * base_layer.kernel_size[0],
+                    r,
+                ),
                 requires_grad=True,
             )
         else:
-            raise TypeError(f"HRA is not implemented for base layers of type {type(base_layer).__name__}")
+            raise TypeError(
+                f"HRA is not implemented for base layers of type {type(base_layer).__name__}"
+            )
 
         # Initialize weights
         if init_weights:
@@ -93,13 +110,17 @@ class HRALayer(BaseTunerLayer):
 
     def reset_hra_parameters(self, adapter_name: str):
         if self.hra_r[adapter_name] % 2 != 0:
-            warnings.warn("The symmetric initialization can NOT be performed when r is odd!")
+            warnings.warn(
+                "The symmetric initialization can NOT be performed when r is odd!"
+            )
             nn.init.kaiming_uniform_(self.hra_u[adapter_name], a=math.sqrt(5))
         else:
             shape = self.hra_u[adapter_name].shape
             half_u = torch.zeros(shape[0], shape[1] // 2)
             nn.init.kaiming_uniform_(half_u, a=math.sqrt(5))
-            self.hra_u[adapter_name] = nn.Parameter(torch.repeat_interleave(half_u, 2, dim=1))
+            self.hra_u[adapter_name] = nn.Parameter(
+                torch.repeat_interleave(half_u, 2, dim=1)
+            )
 
     def reset_hra_parameters_random(self, adapter_name: str):
         nn.init.kaiming_uniform_(self.hra_u[adapter_name], a=math.sqrt(5))
@@ -112,14 +133,18 @@ class HRALayer(BaseTunerLayer):
             if active_adapter not in self.hra_u.keys():
                 continue
 
-            warnings.warn("Scaling operation for HRA not supported! Automatically set scale to 1.")
+            warnings.warn(
+                "Scaling operation for HRA not supported! Automatically set scale to 1."
+            )
 
     def unscale_layer(self, scale=None) -> None:
         for active_adapter in self.active_adapters:
             if active_adapter not in self.hra_u.keys():
                 continue
 
-            warnings.warn("Unscaling operation for HRA not supported! Keeping scale at 1.")
+            warnings.warn(
+                "Unscaling operation for HRA not supported! Keeping scale at 1."
+            )
 
 
 class HRALinear(nn.Module, HRALayer):
@@ -141,7 +166,9 @@ class HRALinear(nn.Module, HRALayer):
         self._active_adapter = adapter_name
         self.update_layer(adapter_name, r, apply_GS, init_weights, **kwargs)
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+    ) -> None:
         """
         Merge the active adapter weights into the base weights
 
@@ -177,7 +204,9 @@ class HRALinear(nn.Module, HRALayer):
                     self.base_layer.weight.data = orig_weight
                 else:
                     delta_weight = self.get_delta_weight(active_adapter)
-                    self.base_layer.weight.data = torch.mm(self.base_layer.weight.data, delta_weight)
+                    self.base_layer.weight.data = torch.mm(
+                        self.base_layer.weight.data, delta_weight
+                    )
                 self.merged_adapters.append(active_adapter)
 
     def unmerge(self) -> None:
@@ -194,7 +223,9 @@ class HRALinear(nn.Module, HRALayer):
                 delta_weight = self.get_delta_weight(active_adapter, reverse=True)
                 self.get_base_layer().weight.data = torch.mm(orig_weight, delta_weight)
 
-    def get_delta_weight(self, adapter_name: str, reverse: bool = False) -> torch.Tensor:
+    def get_delta_weight(
+        self, adapter_name: str, reverse: bool = False
+    ) -> torch.Tensor:
         rank = self.hra_r[adapter_name]
         apply_GS = self.hra_apply_GS[adapter_name]
         opt_u = self.hra_u[adapter_name]
@@ -208,7 +239,10 @@ class HRALinear(nn.Module, HRALayer):
                     ui = ui - (weight[j].t() @ ui) * weight[j]
                 weight.append((ui / ui.norm()).view(-1, 1))
             weight = torch.cat(weight, dim=1)
-            weight = torch.eye(shape[0], device=opt_u.device, dtype=opt_u.dtype) - 2 * weight @ weight.t()
+            weight = (
+                torch.eye(shape[0], device=opt_u.device, dtype=opt_u.dtype)
+                - 2 * weight @ weight.t()
+            )
 
         else:
             opt_u = opt_u / opt_u.norm(dim=0)
@@ -220,7 +254,10 @@ class HRALinear(nn.Module, HRALayer):
 
             for i in indices:
                 ui = opt_u[:, i].view(-1, 1)
-                weight = weight @ (torch.eye(shape[0], device=opt_u.device, dtype=opt_u.dtype) - 2 * ui @ ui.t())
+                weight = weight @ (
+                    torch.eye(shape[0], device=opt_u.device, dtype=opt_u.dtype)
+                    - 2 * ui @ ui.t()
+                )
 
         return weight
 
@@ -273,7 +310,9 @@ class HRAConv2d(nn.Module, HRALayer):
         self._active_adapter = adapter_name
         self.update_layer(adapter_name, r, apply_GS, init_weights, **kwargs)
 
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
+    def merge(
+        self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None
+    ) -> None:
         """
         Merge the active adapter weights into the base weights
 
@@ -300,7 +339,9 @@ class HRAConv2d(nn.Module, HRALayer):
                     orig_weight = base_layer.weight.data.clone()
                     orig_weight = orig_weight.view(
                         self.out_features,
-                        self.in_features * self.base_layer.kernel_size[0] * self.base_layer.kernel_size[0],
+                        self.in_features
+                        * self.base_layer.kernel_size[0]
+                        * self.base_layer.kernel_size[0],
                     )
                     delta_weight = self.get_delta_weight(active_adapter)
                     orig_weight = torch.mm(orig_weight, delta_weight)
@@ -321,7 +362,9 @@ class HRAConv2d(nn.Module, HRALayer):
                     orig_weight = base_layer.weight.data
                     orig_weight = orig_weight.view(
                         self.out_features,
-                        self.in_features * self.base_layer.kernel_size[0] * self.base_layer.kernel_size[0],
+                        self.in_features
+                        * self.base_layer.kernel_size[0]
+                        * self.base_layer.kernel_size[0],
                     )
                     delta_weight = self.get_delta_weight(active_adapter)
                     orig_weight = torch.mm(orig_weight, delta_weight)
@@ -348,17 +391,24 @@ class HRAConv2d(nn.Module, HRALayer):
                 orig_weight = self.get_base_layer().weight.data.clone()
                 orig_weight = orig_weight.view(
                     self.out_features,
-                    self.in_features * self.base_layer.kernel_size[0] * self.base_layer.kernel_size[0],
+                    self.in_features
+                    * self.base_layer.kernel_size[0]
+                    * self.base_layer.kernel_size[0],
                 )
                 delta_weight = self.get_delta_weight(active_adapter, reverse=True)
                 orig_weight = torch.mm(orig_weight, delta_weight)
                 orig_weight = orig_weight.view(
-                    self.out_features, self.in_features, self.base_layer.kernel_size[0], self.base_layer.kernel_size[0]
+                    self.out_features,
+                    self.in_features,
+                    self.base_layer.kernel_size[0],
+                    self.base_layer.kernel_size[0],
                 )
 
                 self.get_base_layer().weight.data = orig_weight
 
-    def get_delta_weight(self, adapter_name: str, reverse: bool = False) -> torch.Tensor:
+    def get_delta_weight(
+        self, adapter_name: str, reverse: bool = False
+    ) -> torch.Tensor:
         rank = self.hra_r[adapter_name]
         apply_GS = self.hra_apply_GS[adapter_name]
         opt_u = self.hra_u[adapter_name]
@@ -372,7 +422,10 @@ class HRAConv2d(nn.Module, HRALayer):
                     ui = ui - (weight[j].t() @ ui) * weight[j]
                 weight.append((ui / ui.norm()).view(-1, 1))
             weight = torch.cat(weight, dim=1)
-            weight = torch.eye(shape[0], device=opt_u.device, dtype=opt_u.dtype) - 2 * weight @ weight.t()
+            weight = (
+                torch.eye(shape[0], device=opt_u.device, dtype=opt_u.dtype)
+                - 2 * weight @ weight.t()
+            )
 
         else:
             opt_u = opt_u / opt_u.norm(dim=0)
@@ -384,7 +437,10 @@ class HRAConv2d(nn.Module, HRALayer):
 
             for i in indices:
                 ui = opt_u[:, i].view(-1, 1)
-                weight = weight @ (torch.eye(shape[0], device=opt_u.device, dtype=opt_u.dtype) - 2 * ui @ ui.t())
+                weight = weight @ (
+                    torch.eye(shape[0], device=opt_u.device, dtype=opt_u.dtype)
+                    - 2 * ui @ ui.t()
+                )
 
         return weight
 
@@ -399,7 +455,10 @@ class HRAConv2d(nn.Module, HRALayer):
             result = self.base_layer(x, *args, **kwargs)
         else:
             new_weight = torch.eye(
-                self.in_features * self.base_layer.kernel_size[0] * self.base_layer.kernel_size[0], device=x.device
+                self.in_features
+                * self.base_layer.kernel_size[0]
+                * self.base_layer.kernel_size[0],
+                device=x.device,
             )
             for active_adapter in self.active_adapters:
                 if active_adapter not in self.hra_u.keys():
@@ -412,11 +471,16 @@ class HRAConv2d(nn.Module, HRALayer):
             orig_weight = self.base_layer.weight.data
             orig_weight = orig_weight.view(
                 self.out_features,
-                self.in_features * self.base_layer.kernel_size[0] * self.base_layer.kernel_size[0],
+                self.in_features
+                * self.base_layer.kernel_size[0]
+                * self.base_layer.kernel_size[0],
             )
             new_weight = torch.mm(orig_weight, new_weight)
             new_weight = new_weight.view(
-                self.out_features, self.in_features, self.base_layer.kernel_size[0], self.base_layer.kernel_size[0]
+                self.out_features,
+                self.in_features,
+                self.base_layer.kernel_size[0],
+                self.base_layer.kernel_size[0],
             )
 
             result = F.conv2d(
