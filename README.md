@@ -1,29 +1,23 @@
-## Requirements 
-    python 3.11.7
+# Llama 3.1 8B Experiments
 
-## Dependancies installation
-Plese follow these steps (required!):
+## GLUE MNLI
 
-0. If you don't have python of specific version:
-    - Install conda
-    - Run:
-      ```bash
-      conda create --name python3.11.7 python=3.11.7
-      conda activate python3.11.7
-      ```
+**Parameters**
+- batch size 16
+- learning rate 3e-4
+- max steps 128
+- scheduler cosine
+- warmup steps 10
 
-1. Create virtual env
-```bash
-python3.11 -m venv venv
-source venv/bin/activate
-```
+<img src="llama3_figures/mnli_loss.jpg" alt="MNLI Loss" width="500"/> <img src="llama3_figures/mnli_acc.jpg" alt="MNLI Accuracy" width="500"/>
 
-2. Update pip to latest
-```bash
-pip install pip==24.1.1
-```
+## GLUE MNLI
 
-3. Install rest of packages from requirements.txt
-```bash
-pip install -r requirements.txt
-```
+**Parameters**
+- batch size 16
+- learning rate 3e-4
+- max steps 128
+- scheduler cosine
+- warmup steps 10
+
+<img src="llama3_figures/mnli_loss.jpg" alt="MNLI Loss" width="500"/> <img src="llama3_figures/mnli_acc.jpg" alt="MNLI Accuracy" width="500"/>
