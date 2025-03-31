@@ -47,3 +47,15 @@
 - r=8
 
 <img src="llama3_figures/rte_loss.png" alt="RTE Loss" width="500"/> <img src="llama3_figures/rte_acc.png" alt="RTE Accuracy" width="500"/>
+
+## GLUE MRPC
+
+**Parameters**
+- batch size=8 (for lora=32)
+- learning rate=8e-5
+- max steps=251
+- scheduler=cosine
+- warmup steps=10
+- r=8
+
+<img src="llama3_figures/mrpc_loss.png" alt="MRPC Loss" width="500"/> <img src="llama3_figures/mrpc_f1.png" alt="MRPC F1-Score" width="500"/>
